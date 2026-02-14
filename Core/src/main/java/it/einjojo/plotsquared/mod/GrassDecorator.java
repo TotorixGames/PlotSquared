@@ -16,16 +16,18 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.plotsquared.core.generator;
+package it.einjojo.plotsquared.mod;
 
+import com.plotsquared.core.generator.TurbulenceNoise;
 import com.plotsquared.core.queue.ZeroedDelegateScopedQueueCoordinator;
 import com.sk89q.worldedit.world.block.BlockTypes;
 
 /**
  * Efficiently places grass decoration on plots using turbulence patterns.
+ * <p>
+ * Replaced by palettes. Keeping for future reference.
  *
- * Why separate class: Decouples decoration logic from core generation.
- * Why single responsibility: Only handles grass placement above terrain.
+ * @see FoliageDecorator
  */
 public final class GrassDecorator {
 
@@ -40,15 +42,15 @@ public final class GrassDecorator {
 
     /**
      * Places grass on a single plot coordinate if noise permits.
-     *
+     * <p>
      * Why above PLOT_HEIGHT: Grass belongs on top of terrain, not embedded.
      * Why noise check first: Avoids block placement overhead when skipping.
      *
-     * @param result World modification queue
-     * @param x Chunk-local X coordinate [0-15]
-     * @param z Chunk-local Z coordinate [0-15]
-     * @param worldX Absolute world X for noise sampling
-     * @param worldZ Absolute world Z for noise sampling
+     * @param result     World modification queue
+     * @param x          Chunk-local X coordinate [0-15]
+     * @param z          Chunk-local Z coordinate [0-15]
+     * @param worldX     Absolute world X for noise sampling
+     * @param worldZ     Absolute world Z for noise sampling
      * @param plotHeight The configured plot surface level
      */
     public void decorate(

@@ -39,6 +39,7 @@ import com.sk89q.worldedit.world.NullWorld;
 import com.sk89q.worldedit.world.biome.BiomeType;
 import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockTypes;
+import it.einjojo.plotsquared.mod.FoliageDecorator;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -49,14 +50,12 @@ public class HybridGen extends IndependentPlotGenerator {
     private static final CuboidRegion CHUNK = new CuboidRegion(BlockVector3.ZERO, BlockVector3.at(15, 396, 15));
     private final HybridPlotWorldFactory hybridPlotWorldFactory;
 
-    // Global turbulence pattern shared across all chunks for spatial continuity
-    private final GrassDecorator grassDecorator;
+    private final FoliageDecorator foliageDecorator;
 
     @Inject
     public HybridGen(final @NonNull HybridPlotWorldFactory hybridPlotWorldFactory) {
         this.hybridPlotWorldFactory = hybridPlotWorldFactory;
-        // Seed 12345 provides deterministic pattern; scale 3 balances density vs distribution
-        this.grassDecorator = new GrassDecorator(new TurbulenceNoise(12345, 3));
+        this.foliageDecorator = new FoliageDecorator();
     }
 
     @Override
@@ -238,9 +237,7 @@ public class HybridGen extends IndependentPlotGenerator {
                         }
                         result.setBlock(x, hybridPlotWorld.PLOT_HEIGHT, z, hybridPlotWorld.TOP_BLOCK.toPattern());
                         // TOTORIX PLOT CUSTOMIZING START
-                        // Apply procedural grass decoration using noise-based turbulence
-                        // World coordinates (min.getX() + x, min.getZ() + z) maintain pattern across chunk boundaries
-                        grassDecorator.decorate(result, x, z, min.getX() + x, min.getZ() + z, hybridPlotWorld.PLOT_HEIGHT);
+                        foliageDecorator.decorate(result, x, z, min.getX() + x, min.getZ() + z, hybridPlotWorld.PLOT_HEIGHT);
                         // TOTORIX PLOT CUSTOMIZING END
                         if (hybridPlotWorld.PLOT_SCHEMATIC) {
                             placeSchem(hybridPlotWorld, result, relativeX[x], relativeZ[z], x, z, plotFeatures);
