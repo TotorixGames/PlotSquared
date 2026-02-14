@@ -49,9 +49,14 @@ public class HybridGen extends IndependentPlotGenerator {
     private static final CuboidRegion CHUNK = new CuboidRegion(BlockVector3.ZERO, BlockVector3.at(15, 396, 15));
     private final HybridPlotWorldFactory hybridPlotWorldFactory;
 
+    // Global turbulence pattern shared across all chunks for spatial continuity
+    private final GrassDecorator grassDecorator;
+
     @Inject
     public HybridGen(final @NonNull HybridPlotWorldFactory hybridPlotWorldFactory) {
         this.hybridPlotWorldFactory = hybridPlotWorldFactory;
+        // Seed 12345 provides deterministic pattern; scale 3 balances density vs distribution
+        this.grassDecorator = new GrassDecorator(new TurbulenceNoise(12345, 3));
     }
 
     @Override
@@ -233,8 +238,9 @@ public class HybridGen extends IndependentPlotGenerator {
                         }
                         result.setBlock(x, hybridPlotWorld.PLOT_HEIGHT, z, hybridPlotWorld.TOP_BLOCK.toPattern());
                         // TOTORIX PLOT CUSTOMIZING START
-                        // modifes what comes on top of the plot
-                        
+                        // Apply procedural grass decoration using noise-based turbulence
+                        // World coordinates (min.getX() + x, min.getZ() + z) maintain pattern across chunk boundaries
+                        grassDecorator.decorate(result, x, z, min.getX() + x, min.getZ() + z, hybridPlotWorld.PLOT_HEIGHT);
                         // TOTORIX PLOT CUSTOMIZING END
                         if (hybridPlotWorld.PLOT_SCHEMATIC) {
                             placeSchem(hybridPlotWorld, result, relativeX[x], relativeZ[z], x, z, plotFeatures);
