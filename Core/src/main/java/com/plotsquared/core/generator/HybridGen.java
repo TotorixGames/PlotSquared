@@ -232,6 +232,10 @@ public class HybridGen extends IndependentPlotGenerator {
                             result.setBlock(x, y, z, hybridPlotWorld.MAIN_BLOCK.toPattern());
                         }
                         result.setBlock(x, hybridPlotWorld.PLOT_HEIGHT, z, hybridPlotWorld.TOP_BLOCK.toPattern());
+                        // TOTORIX PLOT CUSTOMIZING START
+                        // modifes what comes on top of the plot
+                        
+                        // TOTORIX PLOT CUSTOMIZING END
                         if (hybridPlotWorld.PLOT_SCHEMATIC) {
                             placeSchem(hybridPlotWorld, result, relativeX[x], relativeZ[z], x, z, plotFeatures);
                         }
@@ -325,6 +329,8 @@ public class HybridGen extends IndependentPlotGenerator {
                         }
                     } else if (hybridPlotWorld.PLOT_SCHEMATIC) {
                         placeSchem(hybridPlotWorld, result, relativeX[x], relativeZ[z], x, z, plotFeatures);
+                    } else {
+                        //
                     }
                 }
             }
