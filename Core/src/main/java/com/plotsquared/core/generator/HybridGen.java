@@ -40,6 +40,7 @@ import com.sk89q.worldedit.world.biome.BiomeType;
 import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockTypes;
 import it.einjojo.plotsquared.mod.FoliageDecorator;
+import it.einjojo.plotsquared.mod.TreeSchematicDecorator;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -49,13 +50,14 @@ public class HybridGen extends IndependentPlotGenerator {
 
     private static final CuboidRegion CHUNK = new CuboidRegion(BlockVector3.ZERO, BlockVector3.at(15, 396, 15));
     private final HybridPlotWorldFactory hybridPlotWorldFactory;
-
     private final FoliageDecorator foliageDecorator;
+    private final TreeSchematicDecorator treeDecorator;
 
     @Inject
     public HybridGen(final @NonNull HybridPlotWorldFactory hybridPlotWorldFactory) {
         this.hybridPlotWorldFactory = hybridPlotWorldFactory;
         this.foliageDecorator = new FoliageDecorator();
+        this.treeDecorator = new TreeSchematicDecorator();
     }
 
     @Override
@@ -237,7 +239,31 @@ public class HybridGen extends IndependentPlotGenerator {
                         }
                         result.setBlock(x, hybridPlotWorld.PLOT_HEIGHT, z, hybridPlotWorld.TOP_BLOCK.toPattern());
                         // TOTORIX PLOT CUSTOMIZING START
-                        foliageDecorator.decorate(result, x, z, min.getX() + x, min.getZ() + z, hybridPlotWorld.PLOT_HEIGHT);
+
+                        // Decoration layer
+                        int worldX = min.getX() + x;
+                        int worldZ = min.getZ() + z;
+
+                        // Try tree schematic first (2% chance)
+                        boolean treePlaced = treeDecorator.tryPlaceTree(
+                                result,
+                                hybridPlotWorld,
+                                worldX,
+                                worldZ,
+                                hybridPlotWorld.PLOT_HEIGHT
+                        );
+
+                        // Fallback to foliage palette if no tree placed
+                        if (!treePlaced) {
+                            foliageDecorator.decorate(
+                                    result,
+                                    x,
+                                    z,
+                                    worldX,
+                                    worldZ,
+                                    hybridPlotWorld.PLOT_HEIGHT
+                            );
+                        }
                         // TOTORIX PLOT CUSTOMIZING END
                         if (hybridPlotWorld.PLOT_SCHEMATIC) {
                             placeSchem(hybridPlotWorld, result, relativeX[x], relativeZ[z], x, z, plotFeatures);

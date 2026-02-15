@@ -10,7 +10,7 @@ public final class FoliageDecorator {
     private final Pattern foliagePalette;
 
     public FoliageDecorator() {
-        String paletteString = "60%air,2%oak_wood,6%oak_leaves,20%short_grass,1%dead_bush," +
+        String paletteString = "60%air,2%oak_wood,6%oak_leaves[persistent=true],20%short_grass,1%dead_bush," +
                 "0.2%azalea,1%azure_bluet,0.5%dark_oak_sapling,3%fern";
 
         BlockBucket bucket = new BlockBucket(paletteString);
