@@ -1,4 +1,5 @@
 # Modifications
+The world generator has been extended with a procedural foliage decoration system that places schematics and vegetation on plots during chunk generation. Schematic placement uses a deterministic hash-based algorithm that calculates positions per-plot, ensuring consistent results across chunk boundaries and server restarts. Categories like tree/ and stone/ support configurable spawn chances, max instances per plot, and vertical translation (stones are embedded 2-4 blocks into terrain). A weighted block palette (FoliageDecorator) distributes ground vegetation (grass, ferns, flowers, saplings) using WorldEdit's pattern system with 60% air for natural spacing. All placement logic includes early rejection checks and bounded iteration to minimize performance overhead during world generation.
 
 <p align="center">
     <img src=".github/img.png" alt="foliage demo">
