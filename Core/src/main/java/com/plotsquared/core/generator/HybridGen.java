@@ -40,7 +40,7 @@ import com.sk89q.worldedit.world.biome.BiomeType;
 import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockTypes;
 import it.einjojo.plotsquared.mod.FoliageDecorator;
-import it.einjojo.plotsquared.mod.TreeSchematicDecorator;
+import it.einjojo.plotsquared.mod.SchematicDecorator;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -53,13 +53,13 @@ public class HybridGen extends IndependentPlotGenerator {
     private static final CuboidRegion CHUNK = new CuboidRegion(BlockVector3.ZERO, BlockVector3.at(15, 396, 15));
     private final HybridPlotWorldFactory hybridPlotWorldFactory;
     private final FoliageDecorator foliageDecorator;
-    private final TreeSchematicDecorator treeDecorator;
+    private final SchematicDecorator schematicDecorator;
 
     @Inject
     public HybridGen(final @NonNull HybridPlotWorldFactory hybridPlotWorldFactory) {
         this.hybridPlotWorldFactory = hybridPlotWorldFactory;
         this.foliageDecorator = new FoliageDecorator();
-        this.treeDecorator = new TreeSchematicDecorator();
+        this.schematicDecorator = new SchematicDecorator();
     }
 
     @Override
@@ -292,11 +292,11 @@ public class HybridGen extends IndependentPlotGenerator {
             }
         }
 
-        // Place trees for each plot that intersects this chunk (once per plot, after terrain)
+        // Place schematics (trees, stones, etc.) for each plot that intersects this chunk
         for (Map.Entry<PlotId, int[]> entry : plotBoundsInChunk.entrySet()) {
             PlotId plotId = entry.getKey();
             int[] bounds = entry.getValue();
-            treeDecorator.decorateChunk(
+            schematicDecorator.decorateChunk(
                     result,
                     bounds[0], bounds[1],  // plotBottomX, plotBottomZ
                     bounds[2], bounds[3],  // plotTopX, plotTopZ

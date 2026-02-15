@@ -1,3 +1,12 @@
+# Modifications
+
+### Foliage system:
+
+Place schematics in the following folders to have them be used as foliage for the world generators:
+
+- plugins/PlotSquared/pfoliage/tree/*.schem
+- plugins/PlotSquared/pfoliage/stone/*.schem
+
 <p align="center">
     <img src="https://raw.githubusercontent.com/IntellectualSites/Assets/main/plugins/PlotSquared/PlotSquared.svg" width="250">
 </p>
