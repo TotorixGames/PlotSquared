@@ -17,19 +17,23 @@ public final class SchematicCategory {
 
     private final String name;
     private final List<LoadedSchematic> schematics;
-    private final int spawnChance;      // 0-255 threshold for spawning
-    private final int maxPerPlot;       // Maximum instances per plot
+    private final int spawnChance;          // 0-255 threshold for spawning
+    private final int maxPerPlot;           // Maximum instances per plot
+    private final PlacementTranslation translation;
 
     // Precomputed bounds for fast rejection
     private final int maxWidth;
     private final int maxLength;
 
     private SchematicCategory(String name, List<LoadedSchematic> schematics,
-                             int spawnChance, int maxPerPlot, int maxWidth, int maxLength) {
+                             int spawnChance, int maxPerPlot,
+                             PlacementTranslation translation,
+                             int maxWidth, int maxLength) {
         this.name = name;
         this.schematics = schematics;
         this.spawnChance = spawnChance;
         this.maxPerPlot = maxPerPlot;
+        this.translation = translation;
         this.maxWidth = maxWidth;
         this.maxLength = maxLength;
     }
@@ -37,11 +41,12 @@ public final class SchematicCategory {
     /**
      * Loads all schematics from a directory into a category.
      */
-    public static SchematicCategory load(File directory, int spawnChance, int maxPerPlot) {
+    public static SchematicCategory load(File directory, int spawnChance, int maxPerPlot,
+                                         PlacementTranslation translation) {
         if (!directory.exists() || !directory.isDirectory()) {
             log.warn("Schematic directory not found: {}", directory.getAbsolutePath());
             return new SchematicCategory(directory.getName(), Collections.emptyList(),
-                    spawnChance, maxPerPlot, 0, 0);
+                    spawnChance, maxPerPlot, translation, 0, 0);
         }
 
         List<LoadedSchematic> schematics = new ArrayList<>();
@@ -60,11 +65,14 @@ public final class SchematicCategory {
             }
         }
 
-        log.info("Loaded {} schematics for category '{}' (maxSize: {}x{})",
-                schematics.size(), directory.getName(), maxWidth, maxLength);
+        String translationInfo = translation.hasTranslation()
+                ? String.format(", yOffset: %d to %d", translation.minY(), translation.maxY())
+                : "";
+        log.info("Loaded {} schematics for category '{}' (maxSize: {}x{}{})",
+                schematics.size(), directory.getName(), maxWidth, maxLength, translationInfo);
 
         return new SchematicCategory(directory.getName(), schematics,
-                spawnChance, maxPerPlot, maxWidth, maxLength);
+                spawnChance, maxPerPlot, translation, maxWidth, maxLength);
     }
 
     public String name() {
@@ -96,6 +104,10 @@ public final class SchematicCategory {
 
     public int maxPerPlot() {
         return maxPerPlot;
+    }
+
+    public PlacementTranslation translation() {
+        return translation;
     }
 
     public int maxWidth() {

@@ -24,6 +24,7 @@ public final class SchematicDecorator {
     private static final int PRIME_X = 73856093;
     private static final int PRIME_Z = 19349663;
     private static final int PRIME_CATEGORY = 83492791;
+    private static final int PRIME_TRANSLATION = 48611;
     private static final int BASE_SEED = 98765;
 
     private final List<SchematicCategory> categories;
@@ -36,17 +37,23 @@ public final class SchematicDecorator {
     private void loadCategories() {
         File baseDir = new File("plugins/PlotSquared/pfoliage");
 
-        // Trees: ~25% spawn chance, max 2 per plot
-        categories.add(SchematicCategory.load(new File(baseDir, "tree"), 64, 2));
+        // Trees: ~25% spawn chance, max 2 per plot, no translation (placed on surface)
+        categories.add(SchematicCategory.load(
+                new File(baseDir, "tree"),
+                64, 2,
+                PlacementTranslation.NONE
+        ));
 
-        // Stones: ~40% spawn chance, max 4 per plot
-        categories.add(SchematicCategory.load(new File(baseDir, "stone"), 102, 4));
+        // Stones: ~40% spawn chance, max 4 per plot, embedded 2-4 blocks into ground
+        categories.add(SchematicCategory.load(
+                new File(baseDir, "stone"),
+                102, 4,
+                PlacementTranslation.embedInGround(2, 4)
+        ));
 
         int totalSchematics = categories.stream().mapToInt(SchematicCategory::size).sum();
-        log.info(
-                "SchematicDecorator initialized with {} categories, {} total schematics",
-                categories.size(), totalSchematics
-        );
+        log.info("SchematicDecorator initialized with {} categories, {} total schematics",
+                categories.size(), totalSchematics);
     }
 
     /**
@@ -72,9 +79,7 @@ public final class SchematicDecorator {
         // Process each category
         for (int catIndex = 0; catIndex < categories.size(); catIndex++) {
             SchematicCategory category = categories.get(catIndex);
-            if (category.isEmpty()) {
-                continue;
-            }
+            if (category.isEmpty()) continue;
 
             // Early rejection if no schematic can fit
             if (category.maxWidth() > plotWidth || category.maxLength() > plotLength) {
@@ -84,13 +89,14 @@ public final class SchematicDecorator {
             // Generate placements for this category
             List<PlacementInfo> placements = generatePlacements(
                     plotId, category, catIndex,
-                    plotBottomX, plotBottomZ, plotTopX, plotTopZ
+                    plotBottomX, plotBottomZ, plotTopX, plotTopZ,
+                    plotHeight
             );
 
             // Place schematics that intersect this chunk
             for (PlacementInfo placement : placements) {
                 if (placement.intersectsChunk(chunkMinX, chunkMinZ, chunkMaxX, chunkMaxZ)) {
-                    pasteSchematic(result, placement, plotHeight + 1, chunkMinX, chunkMinZ);
+                    pasteSchematic(result, placement, chunkMinX, chunkMinZ);
                 }
             }
         }
@@ -101,12 +107,14 @@ public final class SchematicDecorator {
      */
     private List<PlacementInfo> generatePlacements(
             PlotId plotId, SchematicCategory category, int categoryIndex,
-            int plotBottomX, int plotBottomZ, int plotTopX, int plotTopZ
+            int plotBottomX, int plotBottomZ, int plotTopX, int plotTopZ,
+            int plotHeight
     ) {
         List<PlacementInfo> placements = new ArrayList<>();
 
         int plotHash = hashPlotId(plotId, categoryIndex);
         int maxPlacements = category.maxPerPlot();
+        PlacementTranslation translation = category.translation();
 
         for (int i = 0; i < maxPlacements; i++) {
             int instanceHash = hashInstance(plotHash, i);
@@ -118,9 +126,7 @@ public final class SchematicDecorator {
 
             // Select schematic
             LoadedSchematic schematic = category.select(instanceHash >>> 8);
-            if (schematic == null) {
-                continue;
-            }
+            if (schematic == null) continue;
 
             // Calculate valid anchor range for this specific schematic
             int minAnchorX = plotBottomX + schematic.origin().getX();
@@ -139,7 +145,14 @@ public final class SchematicDecorator {
             int anchorX = minAnchorX + (Math.abs(instanceHash >>> 16) % rangeX);
             int anchorZ = minAnchorZ + (Math.abs(instanceHash >>> 24 ^ instanceHash) % rangeZ);
 
-            placements.add(new PlacementInfo(schematic, anchorX, anchorZ));
+            // Calculate Y with translation (if any) - optimized to skip hash when no translation
+            int baseY = plotHeight + 1;
+            if (translation.hasTranslation()) {
+                int translationHash = hashTranslation(instanceHash);
+                baseY += translation.calculateOffset(translationHash);
+            }
+
+            placements.add(new PlacementInfo(schematic, anchorX, anchorZ, baseY));
         }
 
         return placements;
@@ -147,16 +160,17 @@ public final class SchematicDecorator {
 
     /**
      * Pastes the portion of a schematic that intersects the current chunk.
+     * Blocks replace existing terrain (important for embedded stones).
      */
     private void pasteSchematic(
             ZeroedDelegateScopedQueueCoordinator result,
             PlacementInfo placement,
-            int baseY,
             int chunkMinX, int chunkMinZ
     ) {
         LoadedSchematic schem = placement.schematic;
         int anchorX = placement.anchorX;
         int anchorZ = placement.anchorZ;
+        int baseY = placement.baseY;
 
         int schemMinX = anchorX - schem.origin().getX();
         int schemMinZ = anchorZ - schem.origin().getZ();
@@ -207,20 +221,25 @@ public final class SchematicDecorator {
         return hash;
     }
 
+    private int hashTranslation(int instanceHash) {
+        return instanceHash * PRIME_TRANSLATION;
+    }
+
     /**
      * Holds placement info with precomputed bounds for fast chunk intersection.
      */
     private static final class PlacementInfo {
-
         final LoadedSchematic schematic;
         final int anchorX;
         final int anchorZ;
+        final int baseY;
         final int minX, maxX, minZ, maxZ;
 
-        PlacementInfo(LoadedSchematic schematic, int anchorX, int anchorZ) {
+        PlacementInfo(LoadedSchematic schematic, int anchorX, int anchorZ, int baseY) {
             this.schematic = schematic;
             this.anchorX = anchorX;
             this.anchorZ = anchorZ;
+            this.baseY = baseY;
 
             // Precompute world bounds
             this.minX = anchorX - schematic.origin().getX();
@@ -231,10 +250,8 @@ public final class SchematicDecorator {
 
         boolean intersectsChunk(int chunkMinX, int chunkMinZ, int chunkMaxX, int chunkMaxZ) {
             return maxX >= chunkMinX && minX <= chunkMaxX &&
-                    maxZ >= chunkMinZ && minZ <= chunkMaxZ;
+                   maxZ >= chunkMinZ && minZ <= chunkMaxZ;
         }
-
     }
 
 }
-
