@@ -1,5 +1,8 @@
 # Modifications
 
+<p align="center">
+    <img src=".github/img.png" alt="foliage demo">
+</p>
 ### Foliage system:
 
 Place schematics in the following folders to have them be used as foliage for the world generators:
