@@ -1,9 +1,9 @@
-package com.plotsquared.core.generator;
+package it.einjojo.plotsquared.mod;
 
 /**
  * Fast binary noise generator using hash-based turbulence.
  * Produces deterministic 0/1 patterns for world decoration.
- *
+ * <p>
  * Why hash-based: Avoids expensive floating-point math while maintaining spatial coherence.
  * Why binary: Simplifies decision-making (place vs skip) without threshold tuning.
  */

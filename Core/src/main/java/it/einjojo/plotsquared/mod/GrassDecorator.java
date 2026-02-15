@@ -18,7 +18,6 @@
  */
 package it.einjojo.plotsquared.mod;
 
-import com.plotsquared.core.generator.TurbulenceNoise;
 import com.plotsquared.core.queue.ZeroedDelegateScopedQueueCoordinator;
 import com.sk89q.worldedit.world.block.BlockTypes;
 

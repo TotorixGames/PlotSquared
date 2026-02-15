@@ -40,7 +40,11 @@ public final class TreeSchematicDecorator {
                     width = temp.getDimensions().getX();
                     height = temp.getDimensions().getY();
                     length = temp.getDimensions().getZ();
+                    reader.close();
+                    log.info("Schematic file found: {}", schematicFile.getAbsolutePath());
                 }
+
+
             } else {
                 log.warn("No schematic baum.schem file found");
             }
@@ -68,13 +72,14 @@ public final class TreeSchematicDecorator {
     ) {
         // Skip if schematic not loaded
         if (treeSchematic == null) {
+            log.info("Skipping tree - No schematic found");
             return false;
         }
 
         // Random chance (configurable - currently 2%)
-        if (random.nextInt(100) >= 10) {
-            return false;
-        }
+//        if (random.nextInt(100) >= 10) {
+//            return false;
+//        }
 
         // Get plot at this location
         Plot plot = plotArea.getPlot(
@@ -93,6 +98,7 @@ public final class TreeSchematicDecorator {
 
         // Check if schematic fits within plot boundaries
         if (!canFitSchematic(plot, worldX, worldZ, plotArea)) {
+            log.info("Skipping tree at ({}, {}) - Not enough space within plot boundaries", worldX, worldZ);
             return false;
         }
 
