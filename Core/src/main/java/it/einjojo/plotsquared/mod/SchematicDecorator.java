@@ -44,11 +44,17 @@ public final class SchematicDecorator {
                 PlacementTranslation.NONE
         ));
 
+        categories.add(SchematicCategory.load(
+            new File(baseDir, "busch"),
+                127, 4,
+                PlacementTranslation.NONE
+            ));
+
         // Stones: ~40% spawn chance, max 4 per plot, embedded 2-4 blocks into ground
         categories.add(SchematicCategory.load(
                 new File(baseDir, "stone"),
                 102, 4,
-                PlacementTranslation.embedInGround(2, 4)
+                PlacementTranslation.NONE
         ));
 
         int totalSchematics = categories.stream().mapToInt(SchematicCategory::size).sum();
