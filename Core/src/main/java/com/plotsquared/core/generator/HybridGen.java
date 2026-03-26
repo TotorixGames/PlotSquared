@@ -39,19 +39,27 @@ import com.sk89q.worldedit.world.NullWorld;
 import com.sk89q.worldedit.world.biome.BiomeType;
 import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockTypes;
+import it.einjojo.plotsquared.mod.FoliageDecorator;
+import it.einjojo.plotsquared.mod.SchematicDecorator;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Map;
 
 public class HybridGen extends IndependentPlotGenerator {
 
     private static final CuboidRegion CHUNK = new CuboidRegion(BlockVector3.ZERO, BlockVector3.at(15, 396, 15));
     private final HybridPlotWorldFactory hybridPlotWorldFactory;
+    private final FoliageDecorator foliageDecorator;
+    private final SchematicDecorator schematicDecorator;
 
     @Inject
     public HybridGen(final @NonNull HybridPlotWorldFactory hybridPlotWorldFactory) {
         this.hybridPlotWorldFactory = hybridPlotWorldFactory;
+        this.foliageDecorator = new FoliageDecorator();
+        this.schematicDecorator = new SchematicDecorator();
     }
 
     @Override
@@ -169,6 +177,10 @@ public class HybridGen extends IndependentPlotGenerator {
         }
         // generation
         int startY = hybridPlotWorld.getMinGenHeight() + (hybridPlotWorld.PLOT_BEDROCK ? 1 : 0);
+
+        // Track which plots intersect this chunk (for tree placement)
+        Map<PlotId, int[]> plotBoundsInChunk = new HashMap<>();
+
         for (short x = 0; x < 16; x++) {
             if (insideRoadX[x]) {
                 for (short z = 0; z < 16; z++) {
@@ -232,12 +244,65 @@ public class HybridGen extends IndependentPlotGenerator {
                             result.setBlock(x, y, z, hybridPlotWorld.MAIN_BLOCK.toPattern());
                         }
                         result.setBlock(x, hybridPlotWorld.PLOT_HEIGHT, z, hybridPlotWorld.TOP_BLOCK.toPattern());
+                        // TOTORIX PLOT CUSTOMIZING START
+
+                        // Calculate which plot this block belongs to
+                        int worldX = min.getX() + x;
+                        int worldZ = min.getZ() + z;
+
+                        // Determine PlotId using PlotSquared's formula (1-indexed!)
+                        // See SquarePlotManager.getPlotIdAbs()
+                        int plotGridX = Math.floorDiv(bx + x, hybridPlotWorld.SIZE) + 1;
+                        int plotGridZ = Math.floorDiv(bz + z, hybridPlotWorld.SIZE) + 1;
+                        PlotId plotId = PlotId.of(plotGridX, plotGridZ);
+
+                        // Track plot bounds for tree placement (computed once per plot)
+                        plotBoundsInChunk.computeIfAbsent(plotId, id -> {
+                            int px = id.getX();
+                            int pz = id.getY();
+
+                            // Use PlotSquared's exact formula from SquarePlotManager
+                            // Note: PlotId is 1-indexed, so px/pz values start at 1
+                            // getPlotBottomLocAbs uses: (ROAD_OFFSET + (px * SIZE)) - PLOT_WIDTH - floor(ROAD_WIDTH/2)
+                            int plotBottomX = (hybridPlotWorld.ROAD_OFFSET_X + (px * hybridPlotWorld.SIZE))
+                                    - hybridPlotWorld.PLOT_WIDTH
+                                    - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0);
+                            int plotBottomZ = (hybridPlotWorld.ROAD_OFFSET_Z + (pz * hybridPlotWorld.SIZE))
+                                    - hybridPlotWorld.PLOT_WIDTH
+                                    - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0);
+
+                            // getPlotTopLocAbs uses: (ROAD_OFFSET + (px * SIZE)) - floor(ROAD_WIDTH/2) - 1
+                            int plotTopX = (hybridPlotWorld.ROAD_OFFSET_X + (px * hybridPlotWorld.SIZE))
+                                    - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0) - 1;
+                            int plotTopZ = (hybridPlotWorld.ROAD_OFFSET_Z + (pz * hybridPlotWorld.SIZE))
+                                    - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0) - 1;
+
+                            return new int[]{plotBottomX, plotBottomZ, plotTopX, plotTopZ};
+                        });
+
+                        // Foliage decoration (per-block, always applied)
+                        foliageDecorator.decorate(result, x, z, worldX, worldZ, hybridPlotWorld.PLOT_HEIGHT);
+
+                        // TOTORIX PLOT CUSTOMIZING END
                         if (hybridPlotWorld.PLOT_SCHEMATIC) {
                             placeSchem(hybridPlotWorld, result, relativeX[x], relativeZ[z], x, z, plotFeatures);
                         }
                     }
                 }
             }
+        }
+
+        // Place schematics (trees, stones, etc.) for each plot that intersects this chunk
+        for (Map.Entry<PlotId, int[]> entry : plotBoundsInChunk.entrySet()) {
+            PlotId plotId = entry.getKey();
+            int[] bounds = entry.getValue();
+            schematicDecorator.decorateChunk(
+                    result,
+                    bounds[0], bounds[1],  // plotBottomX, plotBottomZ
+                    bounds[2], bounds[3],  // plotTopX, plotTopZ
+                    hybridPlotWorld.PLOT_HEIGHT,
+                    plotId
+            );
         }
     }
 
@@ -325,6 +390,8 @@ public class HybridGen extends IndependentPlotGenerator {
                         }
                     } else if (hybridPlotWorld.PLOT_SCHEMATIC) {
                         placeSchem(hybridPlotWorld, result, relativeX[x], relativeZ[z], x, z, plotFeatures);
+                    } else {
+                        //
                     }
                 }
             }
