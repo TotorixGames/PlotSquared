@@ -68,6 +68,7 @@ import com.plotsquared.core.util.SetupUtils;
 import com.plotsquared.core.util.WorldUtil;
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
 import com.sk89q.worldedit.extension.platform.Actor;
+import it.einjojo.plotsquared.mod.SchematicDecorator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.bukkit.Bukkit;
@@ -113,6 +114,7 @@ public class BukkitModule extends AbstractModule {
             bind(RegionManager.class).to(BukkitRegionManager.class);
         }
         bind(GlobalBlockQueue.class).toInstance(new GlobalBlockQueue(QueueProvider.of(BukkitQueueCoordinator.class)));
+
         if (Settings.Enabled_Components.WORLDS) {
             bind(PlotAreaManager.class).to(SinglePlotAreaManager.class);
             try {
@@ -128,11 +130,13 @@ public class BukkitModule extends AbstractModule {
                 .implement(ChunkCoordinator.class, BukkitChunkCoordinator.class)
                 .build(ChunkCoordinatorFactory.class));
         install(new FactoryModuleBuilder().build(ChunkCoordinatorBuilderFactory.class));
+        bind(SchematicDecorator.class).toInstance(new SchematicDecorator());
     }
 
     @Provides
     @Singleton
-    @NonNull EconHandler provideEconHandler() {
+    @NonNull
+    EconHandler provideEconHandler() {
         if (!Settings.Enabled_Components.ECONOMY || !Bukkit.getPluginManager().isPluginEnabled("Vault")) {
             return EconHandler.nullEconHandler();
         }
@@ -141,6 +145,7 @@ public class BukkitModule extends AbstractModule {
     }
 
     private static final class LazyEconHandler extends EconHandler implements ServerListener.MutableEconHandler {
+
         private volatile EconHandler implementation;
 
         public void setImplementation(EconHandler econHandler) {

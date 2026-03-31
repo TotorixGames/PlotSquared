@@ -56,10 +56,10 @@ public class HybridGen extends IndependentPlotGenerator {
     private final SchematicDecorator schematicDecorator;
 
     @Inject
-    public HybridGen(final @NonNull HybridPlotWorldFactory hybridPlotWorldFactory) {
+    public HybridGen(final @NonNull HybridPlotWorldFactory hybridPlotWorldFactory, final SchematicDecorator decorator) {
         this.hybridPlotWorldFactory = hybridPlotWorldFactory;
+        this.schematicDecorator = decorator;
         this.foliageDecorator = new FoliageDecorator();
-        this.schematicDecorator = new SchematicDecorator();
     }
 
     @Override
@@ -257,28 +257,30 @@ public class HybridGen extends IndependentPlotGenerator {
                         PlotId plotId = PlotId.of(plotGridX, plotGridZ);
 
                         // Track plot bounds for tree placement (computed once per plot)
-                        plotBoundsInChunk.computeIfAbsent(plotId, id -> {
-                            int px = id.getX();
-                            int pz = id.getY();
+                        plotBoundsInChunk.computeIfAbsent(
+                                plotId, id -> {
+                                    int px = id.getX();
+                                    int pz = id.getY();
 
-                            // Use PlotSquared's exact formula from SquarePlotManager
-                            // Note: PlotId is 1-indexed, so px/pz values start at 1
-                            // getPlotBottomLocAbs uses: (ROAD_OFFSET + (px * SIZE)) - PLOT_WIDTH - floor(ROAD_WIDTH/2)
-                            int plotBottomX = (hybridPlotWorld.ROAD_OFFSET_X + (px * hybridPlotWorld.SIZE))
-                                    - hybridPlotWorld.PLOT_WIDTH
-                                    - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0);
-                            int plotBottomZ = (hybridPlotWorld.ROAD_OFFSET_Z + (pz * hybridPlotWorld.SIZE))
-                                    - hybridPlotWorld.PLOT_WIDTH
-                                    - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0);
+                                    // Use PlotSquared's exact formula from SquarePlotManager
+                                    // Note: PlotId is 1-indexed, so px/pz values start at 1
+                                    // getPlotBottomLocAbs uses: (ROAD_OFFSET + (px * SIZE)) - PLOT_WIDTH - floor(ROAD_WIDTH/2)
+                                    int plotBottomX = (hybridPlotWorld.ROAD_OFFSET_X + (px * hybridPlotWorld.SIZE))
+                                            - hybridPlotWorld.PLOT_WIDTH
+                                            - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0);
+                                    int plotBottomZ = (hybridPlotWorld.ROAD_OFFSET_Z + (pz * hybridPlotWorld.SIZE))
+                                            - hybridPlotWorld.PLOT_WIDTH
+                                            - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0);
 
-                            // getPlotTopLocAbs uses: (ROAD_OFFSET + (px * SIZE)) - floor(ROAD_WIDTH/2) - 1
-                            int plotTopX = (hybridPlotWorld.ROAD_OFFSET_X + (px * hybridPlotWorld.SIZE))
-                                    - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0) - 1;
-                            int plotTopZ = (hybridPlotWorld.ROAD_OFFSET_Z + (pz * hybridPlotWorld.SIZE))
-                                    - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0) - 1;
+                                    // getPlotTopLocAbs uses: (ROAD_OFFSET + (px * SIZE)) - floor(ROAD_WIDTH/2) - 1
+                                    int plotTopX = (hybridPlotWorld.ROAD_OFFSET_X + (px * hybridPlotWorld.SIZE))
+                                            - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0) - 1;
+                                    int plotTopZ = (hybridPlotWorld.ROAD_OFFSET_Z + (pz * hybridPlotWorld.SIZE))
+                                            - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0) - 1;
 
-                            return new int[]{plotBottomX, plotBottomZ, plotTopX, plotTopZ};
-                        });
+                                    return new int[]{plotBottomX, plotBottomZ, plotTopX, plotTopZ};
+                                }
+                        );
 
                         // Foliage decoration (per-block, always applied)
                         foliageDecorator.decorate(result, x, z, worldX, worldZ, hybridPlotWorld.PLOT_HEIGHT);

@@ -35,31 +35,74 @@ public final class SchematicDecorator {
     }
 
     private void loadCategories() {
-        File baseDir = new File("plugins/PlotSquared/pfoliage");
+        File baseDir = new File("plugins/PlotSquared/schematics");
 
-        // Trees: ~25% spawn chance, max 2 per plot, no translation (placed on surface)
+        categories.add(SchematicCategory.load(
+                new File(baseDir, "busch"),
+                38, 4, // 38%
+                PlacementTranslation.NONE
+        ));
+
+        categories.add(SchematicCategory.load(
+                new File(baseDir, "haus"),
+                30, 1, // ~11% spawn chance
+                PlacementTranslation.NONE
+        ));
+
+        categories.add(SchematicCategory.load(
+                new File(baseDir, "hill"),
+                38, 1, // ~15% spawn chance
+                PlacementTranslation.NONE
+        ));
+
+        categories.add(SchematicCategory.load(
+                new File(baseDir, "kleinkram"),
+                30, 2, // ~11% spawn chance
+                PlacementTranslation.NONE
+        ));
+
+
+        categories.add(SchematicCategory.load(
+                new File(baseDir, "stein"),
+                76, 4, // Stones: ~30% spawn chance
+                PlacementTranslation.NONE
+        ));
+        categories.add(SchematicCategory.load(
+                new File(baseDir, "stein_medium"),
+                51, 3, // Stones: ~20% spawn chance
+                PlacementTranslation.NONE
+        ));
+
+        categories.add(SchematicCategory.load(
+                new File(baseDir, "stein_big"),
+                25, 2, // Stones: ~10% spawn chance
+                PlacementTranslation.NONE
+        ));
+
+        categories.add(SchematicCategory.load(
+                new File(baseDir, "steinkreis"),
+                8, 1, // ~3% spawn chance
+                PlacementTranslation.NONE
+        ));
+
         categories.add(SchematicCategory.load(
                 new File(baseDir, "tree"),
-                64, 2,
+                64, 3, // 25%
                 PlacementTranslation.NONE
         ));
 
         categories.add(SchematicCategory.load(
-            new File(baseDir, "busch"),
-                127, 4,
-                PlacementTranslation.NONE
-            ));
-
-        // Stones: ~40% spawn chance, max 4 per plot, embedded 2-4 blocks into ground
-        categories.add(SchematicCategory.load(
-                new File(baseDir, "stone"),
-                102, 4,
+                new File(baseDir, "wall"),
+                51, 2, // 20%
                 PlacementTranslation.NONE
         ));
+
 
         int totalSchematics = categories.stream().mapToInt(SchematicCategory::size).sum();
-        log.info("SchematicDecorator initialized with {} categories, {} total schematics",
-                categories.size(), totalSchematics);
+        log.info(
+                "SchematicDecorator initialized with {} categories, {} total schematics",
+                categories.size(), totalSchematics
+        );
     }
 
     /**
@@ -85,7 +128,9 @@ public final class SchematicDecorator {
         // Process each category
         for (int catIndex = 0; catIndex < categories.size(); catIndex++) {
             SchematicCategory category = categories.get(catIndex);
-            if (category.isEmpty()) continue;
+            if (category.isEmpty()) {
+                continue;
+            }
 
             // Early rejection if no schematic can fit
             if (category.maxWidth() > plotWidth || category.maxLength() > plotLength) {
@@ -132,7 +177,9 @@ public final class SchematicDecorator {
 
             // Select schematic
             LoadedSchematic schematic = category.select(instanceHash >>> 8);
-            if (schematic == null) continue;
+            if (schematic == null) {
+                continue;
+            }
 
             // Calculate valid anchor range for this specific schematic
             int minAnchorX = plotBottomX + schematic.origin().getX();
@@ -235,6 +282,7 @@ public final class SchematicDecorator {
      * Holds placement info with precomputed bounds for fast chunk intersection.
      */
     private static final class PlacementInfo {
+
         final LoadedSchematic schematic;
         final int anchorX;
         final int anchorZ;
@@ -256,8 +304,9 @@ public final class SchematicDecorator {
 
         boolean intersectsChunk(int chunkMinX, int chunkMinZ, int chunkMaxX, int chunkMaxZ) {
             return maxX >= chunkMinX && minX <= chunkMaxX &&
-                   maxZ >= chunkMinZ && minZ <= chunkMaxZ;
+                    maxZ >= chunkMinZ && minZ <= chunkMaxZ;
         }
+
     }
 
 }
