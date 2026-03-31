@@ -16,7 +16,7 @@ public final class SchematicCategory {
     private static final Logger log = LogManager.getLogger(SchematicCategory.class);
 
     private final String name;
-    private final List<LoadedSchematic> schematics;
+    private final ArrayList<LoadedSchematic> schematics;
     private final int spawnChance;          // 0-255 threshold for spawning
     private final int maxPerPlot;           // Maximum instances per plot
     private final PlacementTranslation translation;
@@ -32,7 +32,7 @@ public final class SchematicCategory {
             int maxWidth, int maxLength
     ) {
         this.name = name;
-        this.schematics = schematics;
+        this.schematics = new ArrayList<>(schematics);
         this.spawnChance = spawnChance;
         this.maxPerPlot = maxPerPlot;
         this.translation = translation;

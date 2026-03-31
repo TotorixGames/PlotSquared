@@ -39,7 +39,7 @@ public final class SchematicDecorator {
 
         categories.add(SchematicCategory.load(
                 new File(baseDir, "busch"),
-                38, 4, // 38%
+                96, 4, // 38%
                 PlacementTranslation.NONE
         ));
 
@@ -60,8 +60,6 @@ public final class SchematicDecorator {
                 30, 2, // ~11% spawn chance
                 PlacementTranslation.NONE
         ));
-
-
         categories.add(SchematicCategory.load(
                 new File(baseDir, "stein"),
                 76, 4, // Stones: ~30% spawn chance
