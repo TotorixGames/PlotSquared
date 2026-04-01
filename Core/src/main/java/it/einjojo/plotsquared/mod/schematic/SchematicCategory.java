@@ -1,4 +1,4 @@
-package it.einjojo.plotsquared.mod;
+package it.einjojo.plotsquared.mod.schematic;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

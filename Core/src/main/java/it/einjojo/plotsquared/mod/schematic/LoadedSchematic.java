@@ -1,4 +1,4 @@
-package it.einjojo.plotsquared.mod;
+package it.einjojo.plotsquared.mod.schematic;
 
 import com.sk89q.worldedit.extent.clipboard.Clipboard;
 import com.sk89q.worldedit.extent.clipboard.io.ClipboardFormats;

@@ -5,6 +5,9 @@ import com.plotsquared.core.plot.PlotId;
 import com.plotsquared.core.queue.ZeroedDelegateScopedQueueCoordinator;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.world.block.BaseBlock;
+import it.einjojo.plotsquared.mod.schematic.LoadedSchematic;
+import it.einjojo.plotsquared.mod.schematic.PlacementTranslation;
+import it.einjojo.plotsquared.mod.schematic.SchematicCategory;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 

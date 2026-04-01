@@ -1,4 +1,4 @@
-package it.einjojo.plotsquared.mod;
+package it.einjojo.plotsquared.mod.schematic;
 
 /**
  * Defines a vertical translation range for schematic placement.
