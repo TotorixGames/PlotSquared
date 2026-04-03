@@ -263,12 +263,6 @@ public final class SchematicDecorator {
 
                     if (!block.getBlockType().getMaterial().isAir() && (!populatingOnly || block.hasNbtData())) {
                         int worldY = baseY + dy - originY;
-                        if (populatingOnly) {
-                            int worldX = chunkMinX + localX;
-                            int worldZ = chunkMinZ + localZ;
-                            log.info("[Populate] NBT block {} at world ({}, {}, {}), nbt={}",
-                                    block.getBlockType().getId(), worldX, worldY, worldZ, block.getNbtData());
-                        }
                         result.setBlock(localX, worldY, localZ, block);
                     }
                 }
