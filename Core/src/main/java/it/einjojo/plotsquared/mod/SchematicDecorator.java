@@ -18,6 +18,7 @@ import java.util.List;
 /**
  * Decorates plots with schematics from multiple categories (trees, stones, etc.).
  * Optimized for chunk-based world generation with deterministic placement.
+ * <p>
  */
 public final class SchematicDecorator {
 
@@ -42,7 +43,7 @@ public final class SchematicDecorator {
 
         categories.add(SchematicCategory.load(
                 new File(baseDir, "busch"),
-                96, 4, // 38%
+                128, 4, // 38% +1/3 chance (96 -> 128)
                 PlacementTranslation.NONE
         ));
 
@@ -65,7 +66,7 @@ public final class SchematicDecorator {
         ));
         categories.add(SchematicCategory.load(
                 new File(baseDir, "stein"),
-                76, 4, // Stones: ~30% spawn chance
+                101, 4, // 30% +1/3 chance (76 -> 101)
                 PlacementTranslation.NONE
         ));
         categories.add(SchematicCategory.load(
@@ -82,7 +83,7 @@ public final class SchematicDecorator {
 
         categories.add(SchematicCategory.load(
                 new File(baseDir, "steinkreis"),
-                8, 1, // ~3% spawn chance
+                16, 1, // 6%
                 PlacementTranslation.NONE
         ));
 
@@ -117,6 +118,17 @@ public final class SchematicDecorator {
             int plotHeight,
             PlotId plotId
     ) {
+        decorateChunk(result, plotBottomX, plotBottomZ, plotTopX, plotTopZ, plotHeight, plotId, false);
+    }
+
+    public void decorateChunk(
+            ZeroedDelegateScopedQueueCoordinator result,
+            int plotBottomX, int plotBottomZ,
+            int plotTopX, int plotTopZ,
+            int plotHeight,
+            PlotId plotId,
+            boolean populatingOnly
+    ) {
         Location chunkMin = result.getMin();
         int chunkMinX = chunkMin.getX();
         int chunkMinZ = chunkMin.getZ();
@@ -148,7 +160,7 @@ public final class SchematicDecorator {
             // Place schematics that intersect this chunk
             for (PlacementInfo placement : placements) {
                 if (placement.intersectsChunk(chunkMinX, chunkMinZ, chunkMaxX, chunkMaxZ)) {
-                    pasteSchematic(result, placement, chunkMinX, chunkMinZ);
+                    pasteSchematic(result, placement, chunkMinX, chunkMinZ, populatingOnly);
                 }
             }
         }
@@ -219,7 +231,8 @@ public final class SchematicDecorator {
     private void pasteSchematic(
             ZeroedDelegateScopedQueueCoordinator result,
             PlacementInfo placement,
-            int chunkMinX, int chunkMinZ
+            int chunkMinX, int chunkMinZ,
+            boolean populatingOnly
     ) {
         LoadedSchematic schem = placement.schematic;
         int anchorX = placement.anchorX;
@@ -248,8 +261,14 @@ public final class SchematicDecorator {
                     BlockVector3 schemPos = clipboardMin.add(dx, dy, dz);
                     BaseBlock block = schem.clipboard().getFullBlock(schemPos);
 
-                    if (!block.getBlockType().getMaterial().isAir()) {
+                    if (!block.getBlockType().getMaterial().isAir() && (!populatingOnly || block.hasNbtData())) {
                         int worldY = baseY + dy - originY;
+                        if (populatingOnly) {
+                            int worldX = chunkMinX + localX;
+                            int worldZ = chunkMinZ + localZ;
+                            log.info("[Populate] NBT block {} at world ({}, {}, {}), nbt={}",
+                                    block.getBlockType().getId(), worldX, worldY, worldZ, block.getNbtData());
+                        }
                         result.setBlock(localX, worldY, localZ, block);
                     }
                 }

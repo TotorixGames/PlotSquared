@@ -398,6 +398,49 @@ public class HybridGen extends IndependentPlotGenerator {
                 }
             }
         }
+        // Populate tile entities from custom schematics (chests, etc.)
+        if (!allRoad) {
+            Map<PlotId, int[]> plotBoundsInChunk = new HashMap<>();
+            for (short x = 0; x < 16; x++) {
+                if (!insideRoadX[x] && !insideWallX[x]) {
+                    for (short z = 0; z < 16; z++) {
+                        if (!insideRoadZ[z] && !insideWallZ[z]) {
+                            int px = Math.floorDiv(bx + x, hybridPlotWorld.SIZE) + 1;
+                            int pz = Math.floorDiv(bz + z, hybridPlotWorld.SIZE) + 1;
+                            PlotId plotId = PlotId.of(px, pz);
+                            plotBoundsInChunk.computeIfAbsent(plotId, id -> {
+                                int pdx = id.getX();
+                                int pdz = id.getY();
+                                int plotBottomX = (hybridPlotWorld.ROAD_OFFSET_X + (pdx * hybridPlotWorld.SIZE))
+                                        - hybridPlotWorld.PLOT_WIDTH
+                                        - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0);
+                                int plotBottomZ = (hybridPlotWorld.ROAD_OFFSET_Z + (pdz * hybridPlotWorld.SIZE))
+                                        - hybridPlotWorld.PLOT_WIDTH
+                                        - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0);
+                                int plotTopX = (hybridPlotWorld.ROAD_OFFSET_X + (pdx * hybridPlotWorld.SIZE))
+                                        - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0) - 1;
+                                int plotTopZ = (hybridPlotWorld.ROAD_OFFSET_Z + (pdz * hybridPlotWorld.SIZE))
+                                        - (int) Math.floor(hybridPlotWorld.ROAD_WIDTH / 2.0) - 1;
+                                return new int[]{plotBottomX, plotBottomZ, plotTopX, plotTopZ};
+                            });
+                        }
+                    }
+                }
+            }
+            for (Map.Entry<PlotId, int[]> entry : plotBoundsInChunk.entrySet()) {
+                PlotId plotId = entry.getKey();
+                int[] bounds = entry.getValue();
+                schematicDecorator.decorateChunk(
+                        result,
+                        bounds[0], bounds[1],
+                        bounds[2], bounds[3],
+                        hybridPlotWorld.PLOT_HEIGHT,
+                        plotId,
+                        true
+                );
+            }
+        }
+
         if (!allRoad && hybridPlotWorld.getPlotSchematicEntities() != null && !hybridPlotWorld
                 .getPlotSchematicEntities()
                 .isEmpty()) {
