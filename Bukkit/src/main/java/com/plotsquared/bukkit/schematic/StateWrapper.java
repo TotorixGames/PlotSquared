@@ -212,7 +212,7 @@ public class StateWrapper {
                     if (type == null) {
                         continue;
                     }
-                    // At some point they used lowercase "count" as IntTag; older format uses "Count" as ByteTag
+                    // 1.20.5+ uses lowercase "count" as IntTag; older format uses "Count" as ByteTag
                     int count = itemComp.getValue().containsKey("count")
                             ? itemComp.getInt("count")
                             : itemComp.getByte("Count");
