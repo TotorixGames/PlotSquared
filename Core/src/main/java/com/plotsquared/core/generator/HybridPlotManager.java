@@ -40,6 +40,8 @@ import com.sk89q.worldedit.regions.CuboidRegion;
 import com.sk89q.worldedit.world.biome.BiomeType;
 import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockTypes;
+import it.einjojo.plotsquared.mod.FoliageDecorator;
+import it.einjojo.plotsquared.mod.SchematicDecorator;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -56,16 +58,22 @@ public class HybridPlotManager extends ClassicPlotManager {
     private final HybridPlotWorld hybridPlotWorld;
     private final RegionManager regionManager;
     private final ProgressSubscriberFactory subscriberFactory;
+    private final FoliageDecorator foliageDecorator;
+    private final SchematicDecorator schematicDecorator;
 
     public HybridPlotManager(
             final @NonNull HybridPlotWorld hybridPlotWorld,
             final @NonNull RegionManager regionManager,
-            @NonNull ProgressSubscriberFactory subscriberFactory
+            @NonNull ProgressSubscriberFactory subscriberFactory,
+            final @NonNull FoliageDecorator foliageDecorator,
+            final @NonNull SchematicDecorator schematicDecorator
     ) {
         super(hybridPlotWorld, regionManager);
         this.hybridPlotWorld = hybridPlotWorld;
         this.regionManager = regionManager;
         this.subscriberFactory = subscriberFactory;
+        this.foliageDecorator = foliageDecorator;
+        this.schematicDecorator = schematicDecorator;
     }
 
     @Override
@@ -329,6 +337,10 @@ public class HybridPlotManager extends ClassicPlotManager {
             queue.setRegenRegion(new CuboidRegion(pos1.getBlockVector3(), pos2.getBlockVector3()));
         }
         pastePlotSchematic(queue, pos1, pos2);
+        if (!canRegen) {
+            // A regenerated region is rebuilt by the generator, which applies the decorators itself.
+            decorateClearedPlot(queue, plot, pos1, pos2);
+        }
         return !enqueue || queue.enqueue();
     }
 
@@ -341,6 +353,121 @@ public class HybridPlotManager extends ClassicPlotManager {
             return;
         }
         createSchemAbs(queue, bottom, top, false);
+    }
+
+    /**
+     * Re-applies the deterministic decorators that {@link HybridGen} uses while generating a plot, so a cleared plot
+     * ends up looking exactly like a freshly generated one.
+     *
+     * @param pos1 minimum corner of the area {@link #clearPlot} has just rebuilt
+     * @param pos2 maximum corner of that area
+     */
+    private void decorateClearedPlot(
+            final @NonNull QueueCoordinator queue,
+            final @NonNull Plot plot,
+            final @NonNull Location pos1,
+            final @NonNull Location pos2
+    ) {
+        // Foliage covers everything that was rebuilt, including the seam towards a still merged neighbour.
+        this.foliageDecorator.decorateRegion(
+                queue,
+                Math.min(pos1.getX(), pos2.getX()),
+                Math.min(pos1.getZ(), pos2.getZ()),
+                Math.max(pos1.getX(), pos2.getX()),
+                Math.max(pos1.getZ(), pos2.getZ()),
+                hybridPlotWorld.PLOT_HEIGHT
+        );
+        // Schematics are anchored to the plot cell, exactly as in HybridGen#generateChunk.
+        Location bottom = getPlotBottomLocAbs(plot.getId());
+        Location top = getPlotTopLocAbs(plot.getId());
+        this.schematicDecorator.decoratePlot(
+                queue,
+                bottom.getX(),
+                bottom.getZ(),
+                top.getX(),
+                top.getZ(),
+                hybridPlotWorld.PLOT_HEIGHT,
+                plot.getId()
+        );
+    }
+
+    /**
+     * Applies foliage to a road strip that has just become plot surface through a merge. Bounds are inclusive and
+     * must match the floor {@link ClassicPlotManager} writes in the corresponding {@code removeRoad} method.
+     * <p>
+     * Schematics are deliberately not placed here: {@link SchematicDecorator} anchors them inside the plot cell, so
+     * merging and unlinking never change the schematic layout of the plots involved.
+     */
+    private void decorateReclaimedRoad(
+            final @NonNull QueueCoordinator queue,
+            final int minX,
+            final int minZ,
+            final int maxX,
+            final int maxZ
+    ) {
+        this.foliageDecorator.decorateRegion(queue, minX, minZ, maxX, maxZ, hybridPlotWorld.PLOT_HEIGHT);
+    }
+
+    @Override
+    public boolean removeRoadEast(final @NonNull Plot plot, @Nullable QueueCoordinator queue) {
+        boolean enqueue = false;
+        if (queue == null) {
+            queue = hybridPlotWorld.getQueue();
+            enqueue = true;
+        }
+        super.removeRoadEast(plot, queue);
+
+        Location bottom = getPlotBottomLocAbs(plot.getId());
+        Location top = getPlotTopLocAbs(plot.getId());
+        decorateReclaimedRoad(
+                queue,
+                top.getX() + 1,
+                bottom.getZ(),
+                top.getX() + hybridPlotWorld.ROAD_WIDTH,
+                top.getZ()
+        );
+        return !enqueue || queue.enqueue();
+    }
+
+    @Override
+    public boolean removeRoadSouth(final @NonNull Plot plot, @Nullable QueueCoordinator queue) {
+        boolean enqueue = false;
+        if (queue == null) {
+            queue = hybridPlotWorld.getQueue();
+            enqueue = true;
+        }
+        super.removeRoadSouth(plot, queue);
+
+        Location bottom = getPlotBottomLocAbs(plot.getId());
+        Location top = getPlotTopLocAbs(plot.getId());
+        decorateReclaimedRoad(
+                queue,
+                bottom.getX(),
+                top.getZ() + 1,
+                top.getX(),
+                top.getZ() + hybridPlotWorld.ROAD_WIDTH
+        );
+        return !enqueue || queue.enqueue();
+    }
+
+    @Override
+    public boolean removeRoadSouthEast(final @NonNull Plot plot, @Nullable QueueCoordinator queue) {
+        boolean enqueue = false;
+        if (queue == null) {
+            queue = hybridPlotWorld.getQueue();
+            enqueue = true;
+        }
+        super.removeRoadSouthEast(plot, queue);
+
+        Location top = getPlotTopLocAbs(plot.getId());
+        decorateReclaimedRoad(
+                queue,
+                top.getX() + 1,
+                top.getZ() + 1,
+                top.getX() + hybridPlotWorld.ROAD_WIDTH,
+                top.getZ() + hybridPlotWorld.ROAD_WIDTH
+        );
+        return !enqueue || queue.enqueue();
     }
 
     /**

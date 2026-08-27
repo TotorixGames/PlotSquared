@@ -56,10 +56,14 @@ public class HybridGen extends IndependentPlotGenerator {
     private final SchematicDecorator schematicDecorator;
 
     @Inject
-    public HybridGen(final @NonNull HybridPlotWorldFactory hybridPlotWorldFactory, final SchematicDecorator decorator) {
+    public HybridGen(
+            final @NonNull HybridPlotWorldFactory hybridPlotWorldFactory,
+            final @NonNull FoliageDecorator foliageDecorator,
+            final @NonNull SchematicDecorator schematicDecorator
+    ) {
         this.hybridPlotWorldFactory = hybridPlotWorldFactory;
-        this.schematicDecorator = decorator;
-        this.foliageDecorator = new FoliageDecorator();
+        this.foliageDecorator = foliageDecorator;
+        this.schematicDecorator = schematicDecorator;
     }
 
     @Override

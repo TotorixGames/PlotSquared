@@ -68,6 +68,7 @@ import com.plotsquared.core.util.SetupUtils;
 import com.plotsquared.core.util.WorldUtil;
 import com.sk89q.worldedit.bukkit.WorldEditPlugin;
 import com.sk89q.worldedit.extension.platform.Actor;
+import it.einjojo.plotsquared.mod.FoliageDecorator;
 import it.einjojo.plotsquared.mod.SchematicDecorator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -130,6 +131,7 @@ public class BukkitModule extends AbstractModule {
                 .implement(ChunkCoordinator.class, BukkitChunkCoordinator.class)
                 .build(ChunkCoordinatorFactory.class));
         install(new FactoryModuleBuilder().build(ChunkCoordinatorBuilderFactory.class));
+        bind(FoliageDecorator.class).toInstance(new FoliageDecorator());
         bind(SchematicDecorator.class).toInstance(new SchematicDecorator());
     }
 

@@ -50,6 +50,8 @@ import com.sk89q.worldedit.math.transform.AffineTransform;
 import com.sk89q.worldedit.util.Direction;
 import com.sk89q.worldedit.world.biome.BiomeType;
 import com.sk89q.worldedit.world.block.BaseBlock;
+import it.einjojo.plotsquared.mod.FoliageDecorator;
+import it.einjojo.plotsquared.mod.SchematicDecorator;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -142,7 +144,9 @@ public class HybridPlotWorld extends ClassicPlotWorld {
     protected PlotManager createManager() {
         return new HybridPlotManager(
                 this, PlotSquared.platform().regionManager(),
-                PlotSquared.platform().injector().getInstance(ProgressSubscriberFactory.class)
+                PlotSquared.platform().injector().getInstance(ProgressSubscriberFactory.class),
+                PlotSquared.platform().injector().getInstance(FoliageDecorator.class),
+                PlotSquared.platform().injector().getInstance(SchematicDecorator.class)
         );
     }
 
