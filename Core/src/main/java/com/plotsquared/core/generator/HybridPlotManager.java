@@ -56,7 +56,6 @@ public class HybridPlotManager extends ClassicPlotManager {
     public static boolean REGENERATIVE_CLEAR = true;
 
     private final HybridPlotWorld hybridPlotWorld;
-    private final RegionManager regionManager;
     private final ProgressSubscriberFactory subscriberFactory;
     private final FoliageDecorator foliageDecorator;
     private final SchematicDecorator schematicDecorator;
@@ -70,7 +69,6 @@ public class HybridPlotManager extends ClassicPlotManager {
     ) {
         super(hybridPlotWorld, regionManager);
         this.hybridPlotWorld = hybridPlotWorld;
-        this.regionManager = regionManager;
         this.subscriberFactory = subscriberFactory;
         this.foliageDecorator = foliageDecorator;
         this.schematicDecorator = schematicDecorator;
@@ -266,12 +264,9 @@ public class HybridPlotManager extends ClassicPlotManager {
             @Nullable PlotPlayer<?> actor,
             @Nullable QueueCoordinator queue
     ) {
-        if (this.regionManager.notifyClear(this)) {
-            //If this returns false, the clear didn't work
-            if (this.regionManager.handleClear(plot, whenDone, this, actor)) {
-                return true;
-            }
-        }
+        // The clear is deliberately not handed to RegionManager#handleClear (FastAsyncWorldEdit): its delegate does not
+        // know about FoliageDecorator/SchematicDecorator and would leave a bare plot behind. The blocks are still
+        // written through the QueueCoordinator, which FAWE provides, so the clear stays fast.
         final Location pos1 = plot.getBottomAbs();
         final Location pos2 = plot.getExtendedTopAbs();
         // If augmented
@@ -368,14 +363,16 @@ public class HybridPlotManager extends ClassicPlotManager {
             final @NonNull Location pos1,
             final @NonNull Location pos2
     ) {
-        // Foliage covers everything that was rebuilt, including the seam towards a still merged neighbour.
+        // Foliage covers everything that was rebuilt, including the seam towards a still merged neighbour. Columns the
+        // plot schematic occupies are left out, because HybridGen pastes that schematic over the foliage as well.
         this.foliageDecorator.decorateRegion(
                 queue,
                 Math.min(pos1.getX(), pos2.getX()),
                 Math.min(pos1.getZ(), pos2.getZ()),
                 Math.max(pos1.getX(), pos2.getX()),
                 Math.max(pos1.getZ(), pos2.getZ()),
-                hybridPlotWorld.PLOT_HEIGHT
+                hybridPlotWorld.PLOT_HEIGHT,
+                hybridPlotWorld.PLOT_SCHEMATIC ? this::plotSchematicLeavesFoliageColumnFree : null
         );
         // Schematics are anchored to the plot cell, exactly as in HybridGen#generateChunk.
         Location bottom = getPlotBottomLocAbs(plot.getId());
@@ -389,6 +386,27 @@ public class HybridPlotManager extends ClassicPlotManager {
                 hybridPlotWorld.PLOT_HEIGHT,
                 plot.getId()
         );
+    }
+
+    /**
+     * Whether the plot schematic leaves the foliage layer of a column empty. {@link #createSchemAbs} fills everything
+     * above the schematic with air, so foliage has to be written after it - but only where the schematic itself does
+     * not place a block, which is the same precedence {@link HybridGen#generateChunk} produces.
+     *
+     * @param x absolute world x
+     * @param z absolute world z
+     */
+    private boolean plotSchematicLeavesFoliageColumnFree(final int x, final int z) {
+        int size = hybridPlotWorld.SIZE;
+        short relativeX = (short) Math.floorMod(x - hybridPlotWorld.ROAD_OFFSET_X, size);
+        short relativeZ = (short) Math.floorMod(z - hybridPlotWorld.ROAD_OFFSET_Z, size);
+        BaseBlock[] blocks = hybridPlotWorld.G_SCH.get(MathMan.pair(relativeX, relativeZ));
+        if (blocks == null) {
+            return true;
+        }
+        int minY = Settings.Schematics.PASTE_ON_TOP ? hybridPlotWorld.SCHEM_Y : hybridPlotWorld.getMinBuildHeight();
+        int index = hybridPlotWorld.PLOT_HEIGHT + 1 - minY;
+        return index < 0 || index >= blocks.length || blocks[index] == null;
     }
 
     /**

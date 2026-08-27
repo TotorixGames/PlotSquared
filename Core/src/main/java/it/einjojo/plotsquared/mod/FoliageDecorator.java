@@ -108,15 +108,51 @@ public final class FoliageDecorator {
             int maxZ,
             int plotHeight
     ) {
+        decorateRegion(queue, minX, minZ, maxX, maxZ, plotHeight, null);
+    }
+
+    /**
+     * Absolute-coordinate variant that leaves out columns rejected by {@code filter}. Bounds are inclusive.
+     *
+     * @param filter decides per column whether foliage may be placed, or {@code null} to place it everywhere
+     */
+    public void decorateRegion(
+            @NonNull QueueCoordinator queue,
+            int minX,
+            int minZ,
+            int maxX,
+            int maxZ,
+            int plotHeight,
+            @Nullable ColumnFilter filter
+    ) {
         int y = plotHeight + 1;
         for (int x = minX; x <= maxX; x++) {
             for (int z = minZ; z <= maxZ; z++) {
+                if (filter != null && !filter.allows(x, z)) {
+                    continue;
+                }
                 BaseBlock block = foliageAt(x, z);
                 if (block != null) {
                     queue.setBlock(x, y, z, block);
                 }
             }
         }
+    }
+
+    /**
+     * Decides for a single column whether it may receive foliage. Used to keep foliage off columns that something
+     * else already occupies, such as the plot schematic.
+     */
+    @FunctionalInterface
+    public interface ColumnFilter {
+
+        /**
+         * @param worldX absolute world x
+         * @param worldZ absolute world z
+         * @return {@code true} when this column may receive foliage
+         */
+        boolean allows(int worldX, int worldZ);
+
     }
 
     private Palette palette() {

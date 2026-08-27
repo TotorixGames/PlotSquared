@@ -645,6 +645,8 @@ public class Settings extends Config {
         @Comment("Use FastAsyncWorldEdit for queue handling.")
         public static boolean FAWE_HOOK = true;
         public static boolean CUBOIDS = true;
+        @Comment("Has no effect on hybrid worlds: their clear has to run through HybridPlotManager#clearPlot so the "
+                + "generator decorators are applied.")
         public static boolean CLEAR = true;
         public static boolean COPY_AND_SWAP = true;
         public static boolean SET_BIOME = true;
