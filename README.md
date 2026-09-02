@@ -1,22 +1,73 @@
 # Modifications
-The world generator has been extended with a procedural foliage decoration system that places schematics and vegetation on plots during chunk generation. Schematic placement uses a deterministic hash-based algorithm that calculates positions per-plot, ensuring consistent results across chunk boundaries and server restarts. Categories like tree/ and stone/ support configurable spawn chances, max instances per plot, and vertical translation (stones are embedded 2-4 blocks into terrain). A weighted block palette (FoliageDecorator) distributes ground vegetation (grass, ferns, flowers, saplings) using WorldEdit's pattern system with 60% air for natural spacing. All placement logic includes early rejection checks and bounded iteration to minimize performance overhead during world generation.
+> Specifically made for the usage on totorix.net, so it might not fit on your server.
+
+The world generator has been extended with a foliage decoration system that places
+schematics and ground vegetation on plots. Everything it places is derived from a hash of the
+block's world coordinates, so a chunk looks identical no matter when or in what order it is
+generated — across chunk boundaries, server restarts and plot resets alike.
 
 <p align="center">
     <img src=".github/img.png" alt="foliage demo">
 </p>
 
-### Foliage system:
+### Schematics
 
-Place schematics in the following folders to have them be used as foliage for the world generators:
+Drop `.schem` files into the category folder you want them to appear in:
 
-- plugins/PlotSquared/pfoliage/tree/*.schem
-- plugins/PlotSquared/pfoliage/stone/*.schem
+```
+plugins/PlotSquared/schematics/<category>/*.schem
+```
 
-#### Merge behaviour:
+Each category has its own spawn chance and a cap on how many instances may appear on one plot.
+Both are hardcoded in `SchematicDecorator#loadCategories`:
 
-When merging plots, the foliage won't be placed.
+| Category       | Chance per attempt | Max per plot |
+|----------------|-------------------:|-------------:|
+| `busch`        |               50% |            4 |
+| `stein`        |             ~39%  |            4 |
+| `tree`         |               25% |            3 |
+| `stein_medium` |             ~20%  |            3 |
+| `wall`         |             ~20%  |            2 |
+| `hill`         |             ~15%  |            1 |
+| `haus`         |             ~12%  |            1 |
+| `kleinkram`    |             ~12%  |            2 |
+| `stein_big`    |             ~10%  |            2 |
+| `steinkreis`   |              ~6%  |            1 |
+
+A category rolls once per allowed instance, so `tree` at 25% / 3 averages a little under one
+tree per plot. Chances are stored as a value out of 256 (`hash & 0xFF < spawnChance`).
+
+A category whose largest schematic does not fit inside the plot is skipped outright, and folders
+that are missing or empty are simply ignored — you do not have to fill all ten.
+
+Schematics are anchored to the plot cell. That is what makes a plot reset restore exactly the
+layout it was generated with, and it is why merging plots never rearranges them.
+
+### Ground vegetation
+
+`FoliageDecorator` fills the layer directly above `PLOT_HEIGHT` from a weighted palette:
+
+```
+60% air, 20% short_grass, 3% fern, 2% oak_leaves[persistent=true],
+1% azure_bluet, 0.5% dead_bush, 0.5% dark_oak_sapling, 0.2% azalea
+```
+
+The numbers are relative weights, not absolute probabilities — they are normalised over their
+sum (87.2), so roughly 69% of columns actually stay empty. Where the plot schematic already
+occupies the column, it wins and no foliage is written.
+
+### Plot reset and merge behaviour
+
+Clearing, deleting or merging a plot re-applies the decorators, so the result looks like freshly
+generated terrain instead of a bare `TOP_BLOCK` surface. Merging additionally grows foliage over
+the reclaimed road strip.
 
 <img src=".github/merge_behavior.png" alt="merge behavior demo">
+
+> Note: on hybrid worlds the clear deliberately bypasses FastAsyncWorldEdit's
+> `RegionManager#handleClear`, because its delegate does not know about the decorators and would
+> leave the plot bare. Blocks still go through the `QueueCoordinator`, which FAWE provides.
+> `Settings.Enabled_Components.FAWE_HOOK.CLEAR` therefore has no effect on hybrid worlds.
 
 <p align="center">
     <img src="https://raw.githubusercontent.com/IntellectualSites/Assets/main/plugins/PlotSquared/PlotSquared.svg" width="250">
