@@ -1,7 +1,26 @@
+/*
+ * PlotSquared, a land and world management plugin for Minecraft.
+ * Copyright (C) IntellectualSites <https://intellectualsites.com>
+ * Copyright (C) IntellectualSites team and contributors
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package it.einjojo.plotsquared.mod;
 
 import com.plotsquared.core.location.Location;
 import com.plotsquared.core.plot.PlotId;
+import com.plotsquared.core.queue.QueueCoordinator;
 import com.plotsquared.core.queue.ZeroedDelegateScopedQueueCoordinator;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.world.block.BaseBlock;
@@ -160,7 +179,12 @@ public final class SchematicDecorator {
             // Place schematics that intersect this chunk
             for (PlacementInfo placement : placements) {
                 if (placement.intersectsChunk(chunkMinX, chunkMinZ, chunkMaxX, chunkMaxZ)) {
-                    pasteSchematic(result, placement, chunkMinX, chunkMinZ, populatingOnly);
+                    pastePlacement(
+                            result, placement,
+                            chunkMinX, chunkMinZ,
+                            chunkMinX, chunkMinZ, chunkMaxX, chunkMaxZ,
+                            populatingOnly
+                    );
                 }
             }
         }
@@ -225,45 +249,92 @@ public final class SchematicDecorator {
     }
 
     /**
-     * Pastes the portion of a schematic that intersects the current chunk.
-     * Blocks replace existing terrain (important for embedded stones).
+     * Decorates a whole plot in absolute world coordinates, e.g. after the plot has been cleared.
+     * <p>
+     * Placements come from the same {@link #generatePlacements} call the chunk based generation uses, so the plot
+     * ends up with exactly the schematics it was generated with. A placement is always fully contained in the plot
+     * (see the anchor range in {@code generatePlacements}), so no clipping against the plot bounds is needed.
      */
-    private void pasteSchematic(
-            ZeroedDelegateScopedQueueCoordinator result,
+    public void decoratePlot(
+            QueueCoordinator queue,
+            int plotBottomX, int plotBottomZ,
+            int plotTopX, int plotTopZ,
+            int plotHeight,
+            PlotId plotId
+    ) {
+        int plotWidth = plotTopX - plotBottomX + 1;
+        int plotLength = plotTopZ - plotBottomZ + 1;
+
+        for (int catIndex = 0; catIndex < categories.size(); catIndex++) {
+            SchematicCategory category = categories.get(catIndex);
+            if (category.isEmpty()) {
+                continue;
+            }
+
+            // Early rejection if no schematic can fit
+            if (category.maxWidth() > plotWidth || category.maxLength() > plotLength) {
+                continue;
+            }
+
+            List<PlacementInfo> placements = generatePlacements(
+                    plotId, category, catIndex,
+                    plotBottomX, plotBottomZ, plotTopX, plotTopZ,
+                    plotHeight
+            );
+
+            for (PlacementInfo placement : placements) {
+                pastePlacement(
+                        queue, placement,
+                        0, 0,
+                        placement.minX, placement.minZ, placement.maxX, placement.maxZ,
+                        false
+                );
+            }
+        }
+    }
+
+    /**
+     * Pastes the part of a placement that lies within the given inclusive clip bounds.
+     * Blocks replace existing terrain (important for embedded stones).
+     *
+     * @param offsetX subtracted from the world x before writing: the chunk minimum for a
+     *                {@link ZeroedDelegateScopedQueueCoordinator}, {@code 0} for a queue in world coordinates
+     * @param offsetZ subtracted from the world z before writing
+     */
+    private void pastePlacement(
+            QueueCoordinator queue,
             PlacementInfo placement,
-            int chunkMinX, int chunkMinZ,
+            int offsetX, int offsetZ,
+            int clipMinX, int clipMinZ,
+            int clipMaxX, int clipMaxZ,
             boolean populatingOnly
     ) {
         LoadedSchematic schem = placement.schematic;
-        int anchorX = placement.anchorX;
-        int anchorZ = placement.anchorZ;
+        int schemMinX = placement.minX;
+        int schemMinZ = placement.minZ;
         int baseY = placement.baseY;
-
-        int schemMinX = anchorX - schem.origin().getX();
-        int schemMinZ = anchorZ - schem.origin().getZ();
 
         BlockVector3 clipboardMin = schem.minPoint();
         int originY = schem.origin().getY();
 
         // Calculate intersection bounds to minimize iterations
-        int startDx = Math.max(0, chunkMinX - schemMinX);
-        int endDx = Math.min(schem.width(), chunkMinX + 16 - schemMinX);
-        int startDz = Math.max(0, chunkMinZ - schemMinZ);
-        int endDz = Math.min(schem.length(), chunkMinZ + 16 - schemMinZ);
+        int startDx = Math.max(0, clipMinX - schemMinX);
+        int endDx = Math.min(schem.width(), clipMaxX + 1 - schemMinX);
+        int startDz = Math.max(0, clipMinZ - schemMinZ);
+        int endDz = Math.min(schem.length(), clipMaxZ + 1 - schemMinZ);
 
         for (int dx = startDx; dx < endDx; dx++) {
-            int localX = schemMinX + dx - chunkMinX;
+            int x = schemMinX + dx - offsetX;
 
             for (int dz = startDz; dz < endDz; dz++) {
-                int localZ = schemMinZ + dz - chunkMinZ;
+                int z = schemMinZ + dz - offsetZ;
 
                 for (int dy = 0; dy < schem.height(); dy++) {
                     BlockVector3 schemPos = clipboardMin.add(dx, dy, dz);
                     BaseBlock block = schem.clipboard().getFullBlock(schemPos);
 
                     if (!block.getBlockType().getMaterial().isAir() && (!populatingOnly || block.hasNbtData())) {
-                        int worldY = baseY + dy - originY;
-                        result.setBlock(localX, worldY, localZ, block);
+                        queue.setBlock(x, baseY + dy - originY, z, block);
                     }
                 }
             }
@@ -298,15 +369,11 @@ public final class SchematicDecorator {
     private static final class PlacementInfo {
 
         final LoadedSchematic schematic;
-        final int anchorX;
-        final int anchorZ;
         final int baseY;
         final int minX, maxX, minZ, maxZ;
 
         PlacementInfo(LoadedSchematic schematic, int anchorX, int anchorZ, int baseY) {
             this.schematic = schematic;
-            this.anchorX = anchorX;
-            this.anchorZ = anchorZ;
             this.baseY = baseY;
 
             // Precompute world bounds
