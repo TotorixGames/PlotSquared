@@ -95,6 +95,8 @@ subprojects {
         java {
             licenseHeaderFile(rootProject.file("HEADER.txt"))
             target("**/*.java")
+            // Totorix-eigener Code steht nicht unter dem IntellectualSites-Header
+            targetExclude("**/it/einjojo/**")
             endWithNewline()
             trimTrailingWhitespace()
             removeUnusedImports()
