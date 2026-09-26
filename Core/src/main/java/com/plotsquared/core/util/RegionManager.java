@@ -40,6 +40,7 @@ import com.sk89q.worldedit.regions.CuboidRegion;
 import com.sk89q.worldedit.regions.Region;
 import com.sk89q.worldedit.world.World;
 import com.sk89q.worldedit.world.biome.BiomeType;
+import it.einjojo.plotsquared.mod.debug.RegionTrace;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -247,6 +248,17 @@ public abstract class RegionManager {
     public abstract boolean regenerateRegion(Location pos1, Location pos2, boolean ignoreAugment, Runnable whenDone);
 
     public abstract void clearAllEntities(Location pos1, Location pos2);
+
+    /**
+     * Starts a diagnostic trace for a region operation. Platforms that do not support tracing, or have it disabled,
+     * return {@link RegionTrace#NONE}.
+     *
+     * @param operation name of the operation, e.g. "move"
+     * @return the trace handle, never null
+     */
+    public @NonNull RegionTrace startTrace(final @NonNull String operation) {
+        return RegionTrace.NONE;
+    }
 
     /**
      * Swap two regions within the same world

@@ -235,6 +235,19 @@ public class Settings extends Config {
     }
 
 
+    @Comment({"Diagnostics for plot move, swap, clear and delete",
+            "Logs container contents, entities and every entity spawned inside the affected regions (with stack trace).",
+            "Leave it off in production, it is very verbose."})
+    public static class Region_Debug {
+
+        @Comment("Trace region operations to the console")
+        public static boolean OPERATIONS = false;
+        @Comment("How long in seconds a region keeps being watched for spawned entities after its operation finished")
+        public static int WATCH_SECONDS = 10;
+
+    }
+
+
     @Comment({"UUID settings",
             "DO NOT EDIT them unless you know what you are doing."})
     public static class UUID {

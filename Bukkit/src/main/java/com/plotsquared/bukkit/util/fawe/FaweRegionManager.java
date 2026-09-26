@@ -21,6 +21,7 @@ package com.plotsquared.bukkit.util.fawe;
 import com.fastasyncworldedit.bukkit.regions.plotsquared.FaweDelegateRegionManager;
 import com.google.inject.Inject;
 import com.plotsquared.bukkit.util.BukkitRegionManager;
+import com.plotsquared.bukkit.util.BukkitUtil;
 import com.plotsquared.core.configuration.Settings;
 import com.plotsquared.core.generator.HybridPlotManager;
 import com.plotsquared.core.inject.factory.ProgressSubscriberFactory;
@@ -32,15 +33,24 @@ import com.plotsquared.core.plot.PlotManager;
 import com.plotsquared.core.queue.GlobalBlockQueue;
 import com.plotsquared.core.queue.QueueCoordinator;
 import com.plotsquared.core.util.WorldUtil;
+import com.plotsquared.core.util.task.TaskManager;
 import com.sk89q.worldedit.function.pattern.Pattern;
 import com.sk89q.worldedit.regions.CuboidRegion;
 import com.sk89q.worldedit.world.biome.BiomeType;
+import it.einjojo.plotsquared.bukkit.debug.RegionOperationTracer;
+import it.einjojo.plotsquared.bukkit.util.RegionEntities;
+import org.bukkit.World;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class FaweRegionManager extends BukkitRegionManager {
 
@@ -96,7 +106,44 @@ public class FaweRegionManager extends BukkitRegionManager {
             final @Nullable PlotPlayer<?> player,
             final Runnable whenDone
     ) {
-        delegate.swap(pos1, pos2, swapPos, whenDone);
+        // FastAsyncWorldEdit copies the entities of both regions into the other one, but never removes the originals,
+        // so every swap duplicates them. Remember the originals and remove them once FAWE is done.
+        TaskManager.runTask(() -> {
+            final World world = BukkitUtil.getWorld(pos1.getWorldName());
+            final World swapWorld = BukkitUtil.getWorld(swapPos.getWorldName());
+            final List<Entity> originals = new ArrayList<>();
+            final Consumer<Entity> collector = entity -> {
+                if (!(entity instanceof Player)) {
+                    originals.add(entity);
+                }
+            };
+            if (world != null && swapWorld != null) {
+                RegionEntities.forEach(world, pos1.getX(), pos1.getZ(), pos2.getX(), pos2.getZ(), collector);
+                RegionEntities.forEach(
+                        swapWorld,
+                        swapPos.getX(),
+                        swapPos.getZ(),
+                        swapPos.getX() + pos2.getX() - pos1.getX(),
+                        swapPos.getZ() + pos2.getZ() - pos1.getZ(),
+                        collector
+                );
+            }
+            delegate.swap(pos1, pos2, swapPos, () -> {
+                int removed = 0;
+                for (Entity entity : originals) {
+                    if (entity.isValid()) {
+                        entity.remove();
+                        removed++;
+                    }
+                }
+                if (Settings.Region_Debug.OPERATIONS) {
+                    RegionOperationTracer.onSwapOriginalsRemoved(originals.size(), removed);
+                }
+                if (whenDone != null) {
+                    whenDone.run();
+                }
+            });
+        });
     }
 
     @Override

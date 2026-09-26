@@ -116,6 +116,7 @@ import com.plotsquared.core.uuid.UUIDPipeline;
 import com.plotsquared.core.uuid.offline.OfflineModeUUIDService;
 import com.sk89q.worldedit.WorldEdit;
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
+import it.einjojo.plotsquared.bukkit.debug.RegionDebugListener;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
@@ -398,6 +399,8 @@ public final class BukkitPlatform extends JavaPlugin implements Listener, PlotPl
 
         // Required
         getServer().getPluginManager().registerEvents(injector().getInstance(WorldEvents.class), this);
+        // Cheap while no region operation is traced, so it can stay registered when the debug setting is toggled by a reload
+        getServer().getPluginManager().registerEvents(new RegionDebugListener(), this);
         if (Settings.Enabled_Components.CHUNK_PROCESSOR) {
             getServer().getPluginManager().registerEvents(injector().getInstance(ChunkListener.class), this);
         }
