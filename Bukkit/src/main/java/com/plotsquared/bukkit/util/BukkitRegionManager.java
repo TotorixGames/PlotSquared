@@ -20,6 +20,7 @@ package com.plotsquared.bukkit.util;
 
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import com.plotsquared.core.configuration.Settings;
 import com.plotsquared.core.generator.AugmentedUtils;
 import com.plotsquared.core.inject.factory.ProgressSubscriberFactory;
 import com.plotsquared.core.location.Location;
@@ -41,11 +42,13 @@ import com.sk89q.worldedit.bukkit.BukkitWorld;
 import com.sk89q.worldedit.regions.CuboidRegion;
 import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockTypes;
+import it.einjojo.plotsquared.bukkit.debug.RegionOperationTracer;
+import it.einjojo.plotsquared.bukkit.util.RegionEntities;
+import it.einjojo.plotsquared.mod.debug.RegionTrace;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Player;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -294,31 +297,34 @@ public class BukkitRegionManager extends RegionManager {
 
     @Override
     public void clearAllEntities(@NonNull Location pos1, @NonNull Location pos2) {
-        String world = pos1.getWorldName();
-
-        final World bukkitWorld = BukkitUtil.getWorld(world);
-        final List<Entity> entities;
-        if (bukkitWorld != null) {
-            entities = new ArrayList<>(bukkitWorld.getEntities());
-        } else {
-            entities = new ArrayList<>();
+        final World bukkitWorld = BukkitUtil.getWorld(pos1.getWorldName());
+        if (bukkitWorld == null) {
+            return;
         }
-
-        int bx = pos1.getX();
-        int bz = pos1.getZ();
-        int tx = pos2.getX();
-        int tz = pos2.getZ();
-        for (Entity entity : entities) {
-            if (!(entity instanceof Player)) {
-                org.bukkit.Location location = entity.getLocation();
-                if (location.getX() >= bx && location.getX() <= tx && location.getZ() >= bz && location.getZ() <= tz) {
-                    if (entity.hasMetadata("ps-tmp-teleport")) {
-                        continue;
-                    }
-                    entity.remove();
-                }
+        final int bx = pos1.getX();
+        final int bz = pos1.getZ();
+        final int tx = pos2.getX();
+        final int tz = pos2.getZ();
+        // Chunk based instead of World#getEntities(): that only sees loaded entities, and the chunks of a plot that was
+        // just copied or cleared are usually unloaded again - leaving the originals behind as duplicates.
+        final List<Entity> toRemove = new ArrayList<>();
+        final int chunksNotLoaded = RegionEntities.forEach(bukkitWorld, bx, bz, tx, tz, entity -> {
+            if (RegionEntities.isRemovable(entity)) {
+                toRemove.add(entity);
             }
+        });
+        toRemove.forEach(Entity::remove);
+        if (Settings.Region_Debug.OPERATIONS) {
+            RegionOperationTracer.onEntitiesCleared(bukkitWorld.getName(), bx, bz, tx, tz, toRemove.size(), chunksNotLoaded);
         }
+    }
+
+    @Override
+    public @NonNull RegionTrace startTrace(final @NonNull String operation) {
+        if (!Settings.Region_Debug.OPERATIONS) {
+            return RegionTrace.NONE;
+        }
+        return RegionOperationTracer.start(operation);
     }
 
     private void count(int[] count, @NonNull Entity entity) {

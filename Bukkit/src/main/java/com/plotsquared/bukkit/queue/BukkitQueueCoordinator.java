@@ -43,12 +43,14 @@ import com.sk89q.worldedit.world.World;
 import com.sk89q.worldedit.world.biome.BiomeType;
 import com.sk89q.worldedit.world.block.BaseBlock;
 import com.sk89q.worldedit.world.block.BlockState;
+import it.einjojo.plotsquared.bukkit.debug.RegionOperationTracer;
+import it.einjojo.plotsquared.bukkit.util.BlockContents;
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.block.Block;
-import org.bukkit.block.Container;
 import org.bukkit.block.data.BlockData;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -140,6 +142,7 @@ public class BukkitQueueCoordinator extends BasicQueueCoordinator {
                                 && blockVector2.getBlockX() < getRegenEnd()[0] && blockVector2.getBlockZ() < getRegenEnd()[1];
                 int sx = blockVector2.getX() << 4;
                 int sz = blockVector2.getZ() << 4;
+                emptyOverwrittenBlockEntities(blockVector2, localChunk, isRegenChunk);
                 if (isRegenChunk) {
                     for (int layer = getMinLayer(); layer <= getMaxLayer(); layer++) {
                         for (int y = 0; y < 16; y++) {
@@ -287,9 +290,7 @@ public class BukkitQueueCoordinator extends BasicQueueCoordinator {
                 return;
             }
 
-            if (existing.getState() instanceof Container) {
-                ((Container) existing.getState()).getInventory().clear();
-            }
+            BlockContents.clear(existing.getState(false));
 
             existing.setType(BukkitAdapter.adapt(block.getBlockType()), false);
             existing.setBlockData(blockData, false);
@@ -300,6 +301,50 @@ public class BukkitQueueCoordinator extends BasicQueueCoordinator {
                 sw.restoreTag(existing);
             }
         }
+    }
+
+    /**
+     * Empties every block entity of the chunk that this queue is about to overwrite. Since Minecraft 1.21.5 replacing a
+     * block entity drops its contents into the world (see {@link BlockContents}), which duplicates items whenever the
+     * contents were copied away before (plot move) and litters cleared or deleted plots.
+     *
+     * @param chunkPos   the chunk being written
+     * @param localChunk the blocks queued for the chunk, or null
+     * @param wholeChunk whether the whole chunk is regenerated
+     */
+    private void emptyOverwrittenBlockEntities(
+            @NonNull BlockVector2 chunkPos,
+            @Nullable LocalChunk localChunk,
+            boolean wholeChunk
+    ) {
+        if (localChunk == null && !wholeChunk) {
+            return;
+        }
+        Chunk chunk = getBukkitWorld().getChunkAt(chunkPos.getX(), chunkPos.getZ());
+        for (org.bukkit.block.BlockState state : chunk.getTileEntities(false)) {
+            if (!wholeChunk) {
+                BaseBlock queued = getQueued(localChunk, state.getX(), state.getY(), state.getZ());
+                // WorldEdit skips a write of the very same state without NBT, the block entity survives unchanged -
+                // emptying it would only delete its contents.
+                if (queued == null || (!queued.hasNbtData()
+                        && queued.toImmutableState().equals(BukkitAdapter.adapt(state.getBlockData())))) {
+                    continue;
+                }
+            }
+            int items = BlockContents.count(state);
+            if (BlockContents.clear(state) && Settings.Region_Debug.OPERATIONS) {
+                RegionOperationTracer.onContentsCleared(state, items);
+            }
+        }
+    }
+
+    private static @Nullable BaseBlock getQueued(@NonNull LocalChunk localChunk, int x, int y, int z) {
+        BaseBlock[][] blocks = localChunk.getBaseblocks();
+        int layer = (y >> 4) - localChunk.getMinSection();
+        if (layer < 0 || layer >= blocks.length || blocks[layer] == null) {
+            return null;
+        }
+        return blocks[layer][ChunkUtil.getJ(x, y, z)];
     }
 
     private org.bukkit.World getBukkitWorld() {

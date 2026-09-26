@@ -265,8 +265,9 @@ public class HybridPlotManager extends ClassicPlotManager {
             @Nullable QueueCoordinator queue
     ) {
         // The clear is deliberately not handed to RegionManager#handleClear (FastAsyncWorldEdit): its delegate does not
-        // know about FoliageDecorator/SchematicDecorator and would leave a bare plot behind. The blocks are still
-        // written through the QueueCoordinator, which FAWE provides, so the clear stays fast.
+        // know about FoliageDecorator/SchematicDecorator and would leave a bare plot behind. The blocks are written
+        // through PlotSquared's own QueueCoordinator (BukkitQueueCoordinator, even with FAWE installed), which empties
+        // block entities before overwriting them - since 1.21.5 their contents would otherwise drop into the world.
         final Location pos1 = plot.getBottomAbs();
         final Location pos2 = plot.getExtendedTopAbs();
         // If augmented

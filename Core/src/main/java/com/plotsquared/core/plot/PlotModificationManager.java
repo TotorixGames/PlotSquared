@@ -48,6 +48,7 @@ import com.sk89q.worldedit.math.BlockVector2;
 import com.sk89q.worldedit.regions.CuboidRegion;
 import com.sk89q.worldedit.world.biome.BiomeType;
 import com.sk89q.worldedit.world.block.BlockTypes;
+import it.einjojo.plotsquared.mod.debug.RegionTrace;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.Tag;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
@@ -157,10 +158,15 @@ public final class PlotModificationManager {
         }
         // copy terrain
         final ArrayDeque<CuboidRegion> regions = new ArrayDeque<>(this.plot.getRegions());
+        final RegionTrace trace = PlotSquared.platform().regionManager().startTrace("copy")
+                .watch("origin", this.plot.getWorldName(), regions)
+                .watch("destination", destination.getWorldName(), shiftRegions(regions, offsetX, offsetZ));
+        trace.stage("before");
         final Runnable run = new Runnable() {
             @Override
             public void run() {
                 if (regions.isEmpty()) {
+                    trace.end();
                     final QueueCoordinator queue = plot.getArea().getQueue();
                     for (final Plot current : plot.getConnectedPlots()) {
                         destination.getManager().claimPlot(current, queue);
@@ -226,16 +232,23 @@ public final class PlotModificationManager {
             this.removeSign();
         }
         final PlotManager manager = this.plot.getArea().getPlotManager();
+        final RegionTrace trace = manager instanceof SinglePlotManager ? RegionTrace.NONE : PlotSquared.platform()
+                .regionManager()
+                .startTrace(isDelete ? "delete" : "clear")
+                .watch("plot", this.plot.getWorldName(), regions);
+        trace.stage("before");
         Runnable run = new Runnable() {
             @Override
             public void run() {
                 if (queue.isEmpty()) {
                     // don't touch world for single plot areas on deletion (un-fuck this in the future)
                     Runnable run = isDelete && manager instanceof SinglePlotManager ? whenDone : () -> {
+                        trace.stage("before-entity-clear");
                         for (CuboidRegion region : regions) {
                             Location[] corners = Plot.getCorners(plot.getWorldName(), region);
                             PlotSquared.platform().regionManager().clearAllEntities(corners[0], corners[1]);
                         }
+                        trace.end();
                         TaskManager.runTask(whenDone);
                     };
                     QueueCoordinator queue = plot.getArea().getQueue();
@@ -756,12 +769,17 @@ public final class PlotModificationManager {
             if (!result) {
                 return false;
             }
+            final RegionTrace trace = PlotSquared.platform().regionManager().startTrace(occupied.get() ? "swap" : "move")
+                    .watch("origin", originArea.getWorldName(), regions)
+                    .watch("destination", destination.getWorldName(), shiftRegions(regions, offsetX, offsetZ));
+            trace.stage("before");
             // copy terrain
             if (occupied.get()) {
                 new Runnable() {
                     @Override
                     public void run() {
                         if (regions.isEmpty()) {
+                            trace.end();
                             // Update signs
                             destination.getPlotModificationManager().setSign();
                             setSign();
@@ -788,7 +806,9 @@ public final class PlotModificationManager {
                                             plot.getId().getX() - offset.getX(),
                                             plot.getId().getY() - offset.getY()
                                     ));
+                            trace.stage("after-copy");
                             final Runnable clearDone = () -> {
+                                trace.end();
                                 QueueCoordinator queue = PlotModificationManager.this.plot.getArea().getQueue();
                                 for (final Plot current : plot.getConnectedPlots()) {
                                     PlotModificationManager.this.plot.getManager().claimPlot(current, queue);
@@ -821,6 +841,17 @@ public final class PlotModificationManager {
             }
             return true;
         });
+    }
+
+    private static List<CuboidRegion> shiftRegions(final Collection<CuboidRegion> regions, final int offsetX, final int offsetZ) {
+        final List<CuboidRegion> shifted = new ArrayList<>(regions.size());
+        for (final CuboidRegion region : regions) {
+            shifted.add(new CuboidRegion(
+                    region.getMinimumPoint().add(offsetX, 0, offsetZ),
+                    region.getMaximumPoint().add(offsetX, 0, offsetZ)
+            ));
+        }
+        return shifted;
     }
 
     /**
