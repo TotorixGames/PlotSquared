@@ -5,6 +5,7 @@ import com.plotsquared.core.util.task.TaskManager;
 import com.plotsquared.core.util.task.TaskTime;
 import com.sk89q.worldedit.regions.CuboidRegion;
 import it.einjojo.plotsquared.bukkit.util.BlockContents;
+import it.einjojo.plotsquared.bukkit.util.RegionEntities;
 import it.einjojo.plotsquared.mod.debug.RegionTrace;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -25,8 +26,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -45,6 +49,7 @@ public final class RegionOperationTracer {
      */
     private static final long MAX_TRACE_MILLIS = TimeUnit.MINUTES.toMillis(10);
     private static final int MAX_STACK_FRAMES = 30;
+    private static final long MAIN_THREAD_TIMEOUT_SECONDS = 10;
     private static final String[] RELEVANT_FRAMES = {
             "net.minecraft.", "com.fastasyncworldedit.", "com.sk89q.", "com.plotsquared.", "it.einjojo.",
             "org.bukkit.craftbukkit."
@@ -158,11 +163,30 @@ public final class RegionOperationTracer {
         return false;
     }
 
-    private static void runOnMain(final Runnable runnable) {
+    /**
+     * Runs the task on the main thread and waits for it. Operations are started from other threads too (move and swap
+     * continue on the thread that finished saving the plot data), and a snapshot deferred to the next tick would be
+     * taken while the operation is already running.
+     */
+    private static void runOnMainAndWait(final Runnable runnable) {
         if (Bukkit.isPrimaryThread()) {
             runnable.run();
-        } else {
-            TaskManager.runTask(runnable);
+            return;
+        }
+        CompletableFuture<Void> done = new CompletableFuture<>();
+        TaskManager.runTask(() -> {
+            try {
+                runnable.run();
+            } finally {
+                done.complete(null);
+            }
+        });
+        try {
+            done.get(MAIN_THREAD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException | TimeoutException e) {
+            LOGGER.warn("[RegionDebug] snapshot did not finish in time, the operation continues without waiting", e);
         }
     }
 
@@ -170,8 +194,7 @@ public final class RegionOperationTracer {
 
         boolean contains(final Location location) {
             return location.getWorld() != null && location.getWorld().getName().equals(world)
-                    && location.getX() >= minX && location.getX() < maxX + 1
-                    && location.getZ() >= minZ && location.getZ() < maxZ + 1;
+                    && RegionEntities.contains(location, minX, minZ, maxX, maxZ);
         }
 
         @Override
@@ -247,7 +270,7 @@ public final class RegionOperationTracer {
         }
 
         private void snapshot(final String stage, final boolean loadChunks) {
-            runOnMain(() -> {
+            runOnMainAndWait(() -> {
                 for (Watched region : watched) {
                     LOGGER.info("{} stage={} {}: {}", prefix(), stage, region, count(region, loadChunks));
                 }
@@ -261,8 +284,8 @@ public final class RegionOperationTracer {
             }
             int containers = 0;
             int containerItems = 0;
-            int droppedStacks = 0;
-            int droppedItems = 0;
+            // stacks, items
+            int[] dropped = new int[2];
             int chunksSkipped = 0;
             int entitiesNotLoaded = 0;
             Map<EntityType, Integer> entities = new TreeMap<>();
@@ -289,23 +312,20 @@ public final class RegionOperationTracer {
                             continue;
                         }
                     }
-                    for (Entity entity : chunk.getEntities()) {
-                        if (!region.contains(entity.getLocation())) {
-                            continue;
-                        }
+                    RegionEntities.forEachInChunk(chunk, region.minX, region.minZ, region.maxX, region.maxZ, entity -> {
                         if (entity instanceof Item item) {
-                            droppedStacks++;
-                            droppedItems += item.getItemStack().getAmount();
+                            dropped[0]++;
+                            dropped[1] += item.getItemStack().getAmount();
                         } else {
                             entities.merge(entity.getType(), 1, Integer::sum);
                         }
-                    }
+                    });
                 }
             }
             return "containers=" + containers
                     + " containerItems=" + containerItems
                     + " entities=" + entities
-                    + " droppedItems=" + droppedItems + " (" + droppedStacks + " stacks)"
+                    + " droppedItems=" + dropped[1] + " (" + dropped[0] + " stacks)"
                     + " chunksSkipped=" + chunksSkipped
                     + " chunksWithEntitiesNotLoaded=" + entitiesNotLoaded;
         }
