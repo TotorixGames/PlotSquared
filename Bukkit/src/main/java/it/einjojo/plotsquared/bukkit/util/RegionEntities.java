@@ -4,6 +4,7 @@ import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
 
 import java.util.function.Consumer;
 
@@ -19,7 +20,35 @@ import java.util.function.Consumer;
  */
 public final class RegionEntities {
 
+    /**
+     * Metadata PlotSquared sets on entities it is temporarily teleporting; they must survive region operations.
+     */
+    private static final String TEMPORARY_TELEPORT_METADATA = "ps-tmp-teleport";
+
     private RegionEntities() {
+    }
+
+    /**
+     * Whether a region operation may remove the entity: everything except players and entities PlotSquared is
+     * currently teleporting.
+     */
+    public static boolean isRemovable(final Entity entity) {
+        return !(entity instanceof Player) && !entity.hasMetadata(TEMPORARY_TELEPORT_METADATA);
+    }
+
+    /**
+     * Whether a location lies inside the given block bounds (inclusive, all heights). A location inside block
+     * {@code maxX} may have any fraction, e.g. {@code maxX + 0.9}.
+     */
+    public static boolean contains(
+            final Location location,
+            final int minX,
+            final int minZ,
+            final int maxX,
+            final int maxZ
+    ) {
+        return location.getX() >= minX && location.getX() < maxX + 1
+                && location.getZ() >= minZ && location.getZ() < maxZ + 1;
     }
 
     /**
@@ -48,16 +77,28 @@ public final class RegionEntities {
                 if (!chunk.isEntitiesLoaded()) {
                     notLoaded++;
                 }
-                for (Entity entity : chunk.getEntities()) {
-                    Location location = entity.getLocation();
-                    if (location.getX() >= minX && location.getX() < maxX + 1
-                            && location.getZ() >= minZ && location.getZ() < maxZ + 1) {
-                        consumer.accept(entity);
-                    }
-                }
+                forEachInChunk(chunk, minX, minZ, maxX, maxZ, consumer);
             }
         }
         return notLoaded;
+    }
+
+    /**
+     * Visits the entities of one chunk that lie inside the given block bounds.
+     */
+    public static void forEachInChunk(
+            final Chunk chunk,
+            final int minX,
+            final int minZ,
+            final int maxX,
+            final int maxZ,
+            final Consumer<Entity> consumer
+    ) {
+        for (Entity entity : chunk.getEntities()) {
+            if (contains(entity.getLocation(), minX, minZ, maxX, maxZ)) {
+                consumer.accept(entity);
+            }
+        }
     }
 
 }

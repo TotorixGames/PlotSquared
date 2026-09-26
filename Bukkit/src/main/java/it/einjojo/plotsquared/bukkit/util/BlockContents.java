@@ -6,6 +6,7 @@ import org.bukkit.block.Chest;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.loot.Lootable;
 
 /**
  * Empties block entities before PlotSquared overwrites them.
@@ -21,56 +22,47 @@ public final class BlockContents {
     }
 
     /**
-     * Empties the given block entity.
+     * Empties the given block entity, including a loot table that has not been rolled yet - vanilla would roll it
+     * while dropping the contents.
      *
      * @param state a live (non snapshot) state, see {@link org.bukkit.block.Block#getState(boolean)}
-     * @return the number of items that were removed
+     * @return whether anything was removed
      */
-    public static int clear(final BlockState state) {
-        if (state instanceof Chest chest) {
-            // getInventory() of a double chest spans both halves, only this half is being replaced
-            return clear(chest.getBlockInventory());
+    public static boolean clear(final BlockState state) {
+        boolean changed = false;
+        if (state instanceof Lootable lootable && lootable.getLootTable() != null) {
+            lootable.setLootTable(null);
+            changed = true;
         }
-        if (state instanceof InventoryHolder holder) {
-            // Container, Jukebox, Lectern, ChiseledBookshelf, DecoratedPot, ...
-            return clear(holder.getInventory());
-        }
-        if (state instanceof Campfire campfire) {
-            int removed = 0;
-            for (int slot = 0; slot < campfire.getSize(); slot++) {
-                ItemStack item = campfire.getItem(slot);
-                if (item != null && !item.isEmpty()) {
-                    removed += item.getAmount();
-                    campfire.setItem(slot, null);
-                }
+        Inventory inventory = inventoryOf(state);
+        if (inventory != null) {
+            if (count(inventory) > 0) {
+                inventory.clear();
+                changed = true;
             }
-            return removed;
+        } else if (state instanceof Campfire campfire && count(campfire) > 0) {
+            for (int slot = 0; slot < campfire.getSize(); slot++) {
+                campfire.setItem(slot, null);
+            }
+            changed = true;
         }
-        return 0;
+        return changed;
     }
 
     /**
-     * Counts the items a block entity holds, without changing it.
+     * Counts the items a block entity holds, without changing it. Loot tables that have not been rolled yet are not
+     * counted.
      *
      * @param state the block entity
      * @return the number of items, 0 for blocks without contents
      */
     public static int count(final BlockState state) {
-        if (state instanceof Chest chest) {
-            return count(chest.getBlockInventory());
-        }
-        if (state instanceof InventoryHolder holder) {
-            return count(holder.getInventory());
+        Inventory inventory = inventoryOf(state);
+        if (inventory != null) {
+            return count(inventory);
         }
         if (state instanceof Campfire campfire) {
-            int count = 0;
-            for (int slot = 0; slot < campfire.getSize(); slot++) {
-                ItemStack item = campfire.getItem(slot);
-                if (item != null && !item.isEmpty()) {
-                    count += item.getAmount();
-                }
-            }
-            return count;
+            return count(campfire);
         }
         return 0;
     }
@@ -82,22 +74,36 @@ public final class BlockContents {
         return state instanceof InventoryHolder || state instanceof Campfire;
     }
 
-    private static int clear(final Inventory inventory) {
-        int removed = count(inventory);
-        if (removed > 0) {
-            inventory.clear();
+    private static Inventory inventoryOf(final BlockState state) {
+        if (state instanceof Chest chest) {
+            // getInventory() of a double chest spans both halves, only this half is being replaced
+            return chest.getBlockInventory();
         }
-        return removed;
+        if (state instanceof InventoryHolder holder) {
+            // Container, Jukebox, Lectern, ChiseledBookshelf, DecoratedPot, ...
+            return holder.getInventory();
+        }
+        return null;
     }
 
     private static int count(final Inventory inventory) {
         int count = 0;
         for (ItemStack item : inventory.getContents()) {
-            if (item != null && !item.isEmpty()) {
-                count += item.getAmount();
-            }
+            count += amount(item);
         }
         return count;
+    }
+
+    private static int count(final Campfire campfire) {
+        int count = 0;
+        for (int slot = 0; slot < campfire.getSize(); slot++) {
+            count += amount(campfire.getItem(slot));
+        }
+        return count;
+    }
+
+    private static int amount(final ItemStack item) {
+        return item == null || item.isEmpty() ? 0 : item.getAmount();
     }
 
 }

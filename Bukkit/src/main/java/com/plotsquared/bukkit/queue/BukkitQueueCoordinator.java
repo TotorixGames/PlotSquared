@@ -322,23 +322,29 @@ public class BukkitQueueCoordinator extends BasicQueueCoordinator {
         }
         Chunk chunk = getBukkitWorld().getChunkAt(chunkPos.getX(), chunkPos.getZ());
         for (org.bukkit.block.BlockState state : chunk.getTileEntities(false)) {
-            if (!wholeChunk && !isQueued(localChunk, state.getX(), state.getY(), state.getZ())) {
-                continue;
+            if (!wholeChunk) {
+                BaseBlock queued = getQueued(localChunk, state.getX(), state.getY(), state.getZ());
+                // WorldEdit skips a write of the very same state without NBT, the block entity survives unchanged -
+                // emptying it would only delete its contents.
+                if (queued == null || (!queued.hasNbtData()
+                        && queued.toImmutableState().equals(BukkitAdapter.adapt(state.getBlockData())))) {
+                    continue;
+                }
             }
-            int removed = BlockContents.clear(state);
-            if (removed > 0 && Settings.Region_Debug.OPERATIONS) {
-                RegionOperationTracer.onContentsCleared(state, removed);
+            int items = BlockContents.count(state);
+            if (BlockContents.clear(state) && Settings.Region_Debug.OPERATIONS) {
+                RegionOperationTracer.onContentsCleared(state, items);
             }
         }
     }
 
-    private static boolean isQueued(@NonNull LocalChunk localChunk, int x, int y, int z) {
+    private static @Nullable BaseBlock getQueued(@NonNull LocalChunk localChunk, int x, int y, int z) {
         BaseBlock[][] blocks = localChunk.getBaseblocks();
         int layer = (y >> 4) - localChunk.getMinSection();
         if (layer < 0 || layer >= blocks.length || blocks[layer] == null) {
-            return false;
+            return null;
         }
-        return blocks[layer][ChunkUtil.getJ(x, y, z)] != null;
+        return blocks[layer][ChunkUtil.getJ(x, y, z)];
     }
 
     private org.bukkit.World getBukkitWorld() {

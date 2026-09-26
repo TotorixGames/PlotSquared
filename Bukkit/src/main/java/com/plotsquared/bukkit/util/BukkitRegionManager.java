@@ -49,7 +49,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Player;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -310,7 +309,7 @@ public class BukkitRegionManager extends RegionManager {
         // just copied or cleared are usually unloaded again - leaving the originals behind as duplicates.
         final List<Entity> toRemove = new ArrayList<>();
         final int chunksNotLoaded = RegionEntities.forEach(bukkitWorld, bx, bz, tx, tz, entity -> {
-            if (!(entity instanceof Player) && !entity.hasMetadata("ps-tmp-teleport")) {
+            if (RegionEntities.isRemovable(entity)) {
                 toRemove.add(entity);
             }
         });
